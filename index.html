@@ -629,6 +629,31 @@ function E(id,unit,indicators,level,kind,gen,hints){var e={id:id,unit:unit,indic
    unit8.js. FR returns the raw \frac fragment for use INSIDE math delimiters,
    defined here for the entries that use it. CR_MARKS stays at the end of this file. */
 function FR(n,d){return "\\frac{"+n+"}{"+d+"}";}
+/* Precision pairing (Nov 8 programme): pad DISTRACTOR numeric strings with
+   trailing zeros so no printed decimal-place count stands alone among the
+   four options. Values are never changed and the key string is never
+   altered; only distractor texts passed in are reformatted. */
+function precPair(keyT, ds){
+  function parse(s){ var m=String(s).match(/^(\$?)(-?\d+)(?:\.(\d+))?(%?)$/); if(!m) return null; return {pre:m[1], intp:m[2], frac:m[3]||"", suf:m[4], dp:(m[3]||"").length}; }
+  var k=parse(keyT); if(!k) return ds;
+  var ps=ds.map(function(o){ return parse(o.t); });
+  if(ps.some(function(p){ return !p; })) return ds;
+  var M=k.dp; ps.forEach(function(p){ if(p.dp>M) M=p.dp; });
+  function render(p,target){
+    var core;
+    if(target===0) core=p.intp;
+    else if(p.dp>=target) core=p.intp+"."+p.frac;
+    else if(p.dp===0) core=p.intp+"."+("000000".slice(0,target));
+    else core=p.intp+"."+p.frac+("000000".slice(0,target-p.dp));
+    return p.pre+core+p.suf;
+  }
+  var targets=new Array(ps.length), found=null;
+  function countsOk(arr){ var c={}, i; c[k.dp]=1; for(i=0;i<arr.length;i++) c[arr[i]]=(c[arr[i]]||0)+1; for(var v in c){ if(c[v]===1) return false; } return true; }
+  function search(i){ if(found) return; if(i===ps.length){ if(countsOk(targets)) found=targets.slice(); return; } for(var t=ps[i].dp;t<=M;t++){ targets[i]=t; search(i+1); if(found) return; } }
+  search(0);
+  if(!found) return ds;
+  return ds.map(function(o,i){ var nt=render(ps[i],found[i]); if(nt===o.t) return o; var n2={}; for(var kk in o) n2[kk]=o[kk]; n2.t=nt; return n2; });
+}
 
 
 /* ===== Unit 1 ===== */
@@ -683,9 +708,9 @@ E("u1-divisibility-why", 1, ["5.1"], 2, "gen", function(){
   if(!n)n=(d===3?417:648);
   var S=u1DigitSum(n), last=n%10, last2=n%100;
   var opts=[
-    {t:"Its last digit, "+last+", is divisible by "+d+".", fb:"The last digit is the test for 2, 5 and 10, not for "+d+"."},
+    {t:"Its last digit, "+last+", is itself divisible by "+d+".", fb:"The last digit is the test for 2, 5 and 10, not for "+d+"."},
     {t:"Its last two digits form "+last2+", which is divisible by "+d+".", fb:"The last-two-digits test belongs to 4. For "+d+", use the digit sum."},
-    {t:"It ends in 0 or 5.", fb:"Ending in 0 or 5 is the test for 5 (and partly for 10), not for "+d+"."}];
+    {t:"It ends in 0 or 5, which is the test for 5.", fb:"Ending in 0 or 5 is the test for 5 (and partly for 10), not for "+d+"."}];
   return mcq("Why is \\("+n+"\\) divisible by \\("+d+"\\)?",
     {t:"Its digits add to "+S+", and "+S+" is divisible by "+d+".", fb:"Correct: the digit-sum test decides divisibility by "+d+"."}, opts,
     "Add the digits of \\("+n+"\\): the digit sum is \\("+S+"\\), and \\("+S+" \\div "+d+" = "+(S/d)+"\\). A digit sum divisible by \\("+d+"\\) means the number is divisible by \\("+d+"\\). The answer is <b>the digit sum, "+S+", is divisible by "+d+"</b>.",
@@ -731,27 +756,27 @@ E("u1-carroll-cell", 1, ["5.2","5.1"], 2, "gen", function(){
 E("u1-divide-by-zero", 1, ["5.3"], 2, "var", varset([
   function(){ return mcq("Why can \\(12 \\div 0\\) not be given an answer?",
     {t:"There is no number that multiplied by 0 gives 12.", fb:"Correct: division is checked by multiplication, and every number times 0 is 0."},
-    [{t:"The answer is 0.", fb:"If 12 divided by 0 were 0, then 0 times 0 would have to equal 12, and it does not."},
-     {t:"The answer is 12.", fb:"If it were 12, then 12 times 0 would have to equal 12, but it equals 0."},
-     {t:"Any number works as the answer.", fb:"A quotient must check out by multiplication; no number times 0 gives 12."}],
+    [{t:"The answer is 0, because zero groups share it.", fb:"If 12 divided by 0 were 0, then 0 times 0 would have to equal 12, and it does not."},
+     {t:"The answer is 12, the same number that was divided at the start.", fb:"If it were 12, then 12 times 0 would have to equal 12, but it equals 0."},
+     {t:"Any number works as the answer to the division in the question.", fb:"A quotient must check out by multiplication; no number times 0 gives 12."}],
     "Division undoes multiplication. For \\(12 \\div 0\\) to have an answer \\(q\\), we would need \\(q \\times 0 = 12\\), but every number times 0 is 0. The answer is <b>no such number exists</b>.", {}); },
   function(){ return mcq("Ten cookies are to be shared equally into groups, but the group size is 0. Why does \\(10 \\div 0\\) fail?",
     {t:"Splitting into 0 groups cannot be done, so the division has no answer.", fb:"Correct: a divisor of 0 asks for groups of nothing, which cannot share anything out."},
-    [{t:"Each group gets 10 cookies.", fb:"That would describe one group of 10, a divisor of 1, not 0."},
+    [{t:"Each group gets 10 cookies, so all the cookies go to one group.", fb:"That would describe one group of 10, a divisor of 1, not 0."},
      {t:"Each group gets 0 cookies and that finishes the sharing.", fb:"Groups of 0 never use up the 10 cookies, so the sharing never ends."},
-     {t:"The answer is 10 because nothing changes.", fb:"Division by 0 is not the same as doing nothing; it has no answer."}],
+     {t:"The answer is 10 because nothing changes when the group size is 0 at the start.", fb:"Division by 0 is not the same as doing nothing; it has no answer."}],
     "Dividing by 0 means making groups of size 0. Groups of 0 never use up the 10 cookies, so the process cannot finish. The answer is <b>division by 0 has no answer</b>.", {}); },
   function(){ return mcq("Which statement explains why \\(7 \\div 0\\) is impossible?",
     {t:"A quotient q would need q times 0 to equal 7, and that never happens.", fb:"Correct: that multiplication check is exactly how division is defined."},
-    [{t:"Seven is an odd number.", fb:"Odd numbers divide fine by many divisors; oddness is not the problem."},
-     {t:"Zero is smaller than seven.", fb:"Small divisors are fine: 7 divided by 1 or by 7 both work."},
-     {t:"The answer would be a very large number.", fb:"No number, large or small, multiplied by 0 gives 7."}],
+    [{t:"Seven is an odd number, and odd numbers cannot be divided at all.", fb:"Odd numbers divide fine by many divisors; oddness is not the problem."},
+     {t:"Zero is smaller than seven, so it cannot be used to divide seven.", fb:"Small divisors are fine: 7 divided by 1 or by 7 both work."},
+     {t:"The answer would be a very large number that is too big to write down here.", fb:"No number, large or small, multiplied by 0 gives 7."}],
     "Check by multiplication: \\(7 \\div 0 = q\\) would mean \\(q \\times 0 = 7\\). Since \\(q \\times 0 = 0\\) for every \\(q\\), this cannot happen. The answer is <b>the multiplication check can never work</b>.", {}); },
   function(){ return mcq("A student writes \\(9 \\div 0 = 0\\). Why is the student wrong?",
     {t:"If the quotient were 0, then 0 times 0 would have to equal 9.", fb:"Correct: the multiplication check fails, so 0 cannot be the quotient."},
-    [{t:"The quotient should be 9.", fb:"Then 9 times 0 would have to equal 9, but it equals 0."},
-     {t:"Nine cannot be divided by small numbers.", fb:"Nine divides by 1, 3 and 9 with no trouble; 0 is the special divisor."},
-     {t:"Zero can never appear in a calculation.", fb:"Zero works as a dividend: 0 divided by 9 is 0. It fails as a divisor."}],
+    [{t:"The quotient should be 9, the number that was divided to begin with.", fb:"Then 9 times 0 would have to equal 9, but it equals 0."},
+     {t:"Nine cannot be divided by small numbers in this question.", fb:"Nine divides by 1, 3 and 9 with no trouble; 0 is the special divisor."},
+     {t:"Zero can never appear in a calculation of any kind at all.", fb:"Zero works as a dividend: 0 divided by 9 is 0. It fails as a divisor."}],
     "Test the claim with multiplication: \\(0 \\times 0 = 0\\), not 9, so 0 is not the quotient of \\(9 \\div 0\\), and no other number checks out either. The answer is <b>the claim fails the multiplication check</b>.", {}); },
   function(){ return mcq("Which of these divisions can be carried out?",
     {t:"0 divided by 6", fb:"Correct: 0 shared into 6 groups gives 0 in each group, and 6 times 0 checks back to 0."},
@@ -783,33 +808,33 @@ E("u1-factor-list", 1, ["5.4"], 1, "gen", function(){
 E("u1-variable-meaning", 1, ["8.4"], 1, "var", varset([
   function(){ return mcq("Tickets cost $9 each. The total cost is written as \\(9t\\), where \\(t\\) is the number of tickets. What is \\(t\\)?",
     {t:"A variable: a value that can change from one purchase to another.", fb:"Correct: the letter stands for a quantity that is not fixed."},
-    [{t:"The multiplication sign.", fb:"The multiplication is implied by writing 9 next to t; t itself stands for the ticket count."},
-     {t:"A fixed value of 9.", fb:"Nine is the price of one ticket; t is the part that changes."},
-     {t:"The total cost.", fb:"The total cost is the whole expression 9t; t is the number of tickets."}],
+    [{t:"The multiplication sign that joins the 9 and the t in the expression.", fb:"The multiplication is implied by writing 9 next to t; t itself stands for the ticket count."},
+     {t:"A fixed value of 9 that stays the same for every purchase of tickets.", fb:"Nine is the price of one ticket; t is the part that changes."},
+     {t:"The total cost of all the tickets bought in the whole purchase.", fb:"The total cost is the whole expression 9t; t is the number of tickets."}],
     "In \\(9t\\), the letter \\(t\\) stands for the number of tickets, which changes with each purchase. A letter used this way is a variable. The answer is <b>a variable, a value that can change</b>.", {}); },
   function(){ return mcq("In the formula for the perimeter of a square, \\(P = 4s\\), what does the variable \\(s\\) represent?",
     {t:"The side length of the square, which can be any value.", fb:"Correct: s changes with the size of the square."},
-    [{t:"The number 4.", fb:"Four is the number of equal sides; s is the side length."},
-     {t:"The perimeter itself.", fb:"The perimeter is P; s is the side length used to find it."},
-     {t:"A unit such as centimetres.", fb:"Units are written after a measurement; s stands for the length value."}],
+    [{t:"The number 4, which counts the sides of the square in the formula.", fb:"Four is the number of equal sides; s is the side length."},
+     {t:"The perimeter itself, the distance all the way around the square.", fb:"The perimeter is P; s is the side length used to find it."},
+     {t:"A unit such as centimetres for measuring length.", fb:"Units are written after a measurement; s stands for the length value."}],
     "\\(P = 4s\\) multiplies the side length by 4. The letter \\(s\\) can be any side length, so it is the variable. The answer is <b>the side length, which can be any value</b>.", {}); },
   function(){ return mcq("A class writes the expression \\(20 - 2m\\) for the money left after buying \\(m\\) muffins at $2 each from $20. What does \\(m\\) do in this expression?",
     {t:"It holds the place of the number of muffins, which is not fixed yet.", fb:"Correct: m can be 1, 2, 3 and so on, and the money left changes with it."},
     [{t:"It tells us to subtract 2 exactly m times as an operation sign.", fb:"The 2m part is a multiplication; m itself is the count of muffins."},
-     {t:"It is a label for muffins, like a unit.", fb:"Here m is a number that can vary, not a unit label."},
-     {t:"It must equal 20.", fb:"Twenty is the starting amount of money; m is the unknown count."}],
+     {t:"It is a label for muffins, like a unit written after a measurement.", fb:"Here m is a number that can vary, not a unit label."},
+     {t:"It must equal 20, the amount of money the class started with for buying muffins.", fb:"Twenty is the starting amount of money; m is the unknown count."}],
     "The value of \\(20 - 2m\\) changes as the number of muffins changes, so \\(m\\) is a variable holding the place of that count. The answer is <b>it holds the place of a value that can change</b>.", {}); },
   function(){ return mcq("Which statement about a variable is correct?",
     {t:"A variable is a letter or symbol that represents a value that can change or is unknown.", fb:"Correct: that is exactly what a variable does in an expression."},
-    [{t:"A variable always stands for the number 1.", fb:"A variable can stand for many different values, not just 1."},
-     {t:"A variable is another name for an equals sign.", fb:"The equals sign joins two sides of an equation; a variable is a letter or symbol."},
-     {t:"A variable must be the letter x.", fb:"Any letter can be used, such as n, t or s, depending on the context."}],
+    [{t:"A variable always stands for the number 1, whatever expression the variable appears in at all.", fb:"A variable can stand for many different values, not just 1."},
+     {t:"A variable is another name for an equals sign, the symbol that joins two sides.", fb:"The equals sign joins two sides of an equation; a variable is a letter or symbol."},
+     {t:"A variable must be the letter x, and no other letter can ever be used for one.", fb:"Any letter can be used, such as n, t or s, depending on the context."}],
     "A variable is a letter or symbol standing in for a value that can change or that we do not know yet. The answer is <b>a letter or symbol for a value that can change or is unknown</b>.", {}); },
   function(){ return mcq("In \\(7 - 2t\\), the time spent on homework in hours is \\(t\\). If \\(t\\) grows, what happens to the value of the expression?",
     {t:"It goes down, because a larger t makes the subtracted part larger.", fb:"Correct: 2t grows with t, and it is being subtracted from 7."},
-    [{t:"It stays at 7.", fb:"Seven is only the starting value; the subtracted part changes with t."},
-     {t:"It goes up, because t is getting bigger.", fb:"A bigger t makes 2t bigger, but that part is subtracted, so the value falls."},
-     {t:"It cannot change, because t is just a letter.", fb:"A variable does change value; that is its purpose."}],
+    [{t:"It stays at 7, because the starting number in the expression never changes.", fb:"Seven is only the starting value; the subtracted part changes with t."},
+     {t:"It goes up, because t is getting bigger and bigger as time passes.", fb:"A bigger t makes 2t bigger, but that part is subtracted, so the value falls."},
+     {t:"It cannot change, because t is just a letter in the expression.", fb:"A variable does change value; that is its purpose."}],
     "As \\(t\\) increases, \\(2t\\) increases, and subtracting a larger amount from 7 gives a smaller result. The answer is <b>it goes down</b>.", {}); }
 ]), ["A variable stands in for a value that is not fixed.", "Start by asking which part of the expression can change from case to case."]);
 
@@ -856,21 +881,21 @@ E("u1-expression-or-equation", 1, ["8.6"], 2, "var", varset([
     "An equation states that two expressions are equal, so it must contain an equals sign. Only \\(5n + 3 = 18\\) has one. The answer is <b>5n + 3 = 18</b>.", {}); },
   function(){ return mcq("How are an expression and an equation similar and different?",
     {t:"Both can contain numbers, operations and variables, but only an equation has an equals sign.", fb:"Correct: the equals sign is the key difference."},
-    [{t:"They are the same thing with different names.", fb:"An equation makes a claim that two sides are equal; an expression does not."},
-     {t:"An expression has variables and an equation never does.", fb:"Equations often contain variables, such as 2x + 5 = 17."},
-     {t:"An equation can be evaluated and an expression can only be solved.", fb:"It is the other way around: expressions are evaluated, equations are solved."}],
+    [{t:"They are the same thing with different names, because both are made from the same kinds of parts.", fb:"An equation makes a claim that two sides are equal; an expression does not."},
+     {t:"An expression has variables and an equation never does in any question.", fb:"Equations often contain variables, such as 2x + 5 = 17."},
+     {t:"An equation can be evaluated and an expression can only be solved in a question like this.", fb:"It is the other way around: expressions are evaluated, equations are solved."}],
     "Expressions and equations are built from the same parts. The equation adds an equals sign claiming the two sides match. The answer is <b>same parts, but only the equation has an equals sign</b>.", {}); },
   function(){ return mcq("A student says \\(4x + 7 = 19\\) is an expression. What is the best correction?",
     {t:"It is an equation, because an equals sign joins two expressions.", fb:"Correct: the equals sign makes it an equation."},
-    [{t:"The student is right, because it contains a variable.", fb:"Variables appear in both expressions and equations."},
-     {t:"It is an equation only after it is solved.", fb:"It is an equation as written; solving is something we do with it."},
-     {t:"It is neither, because it has two operations.", fb:"The number of operations does not decide; the equals sign does."}],
+    [{t:"The student is right, because it contains a variable like this one does.", fb:"Variables appear in both expressions and equations."},
+     {t:"It is an equation only after it is solved, and not a moment before that.", fb:"It is an equation as written; solving is something we do with it."},
+     {t:"It is neither, because it has two operations at all.", fb:"The number of operations does not decide; the equals sign does."}],
     "The equals sign in \\(4x + 7 = 19\\) joins \\(4x + 7\\) and \\(19\\), so the whole statement is an equation. The answer is <b>it is an equation because of the equals sign</b>.", {}); },
   function(){ return mcq("Which task fits an equation rather than an expression?",
     {t:"Find the value of x that makes 2x + 5 = 17 true.", fb:"Correct: finding the value that makes a statement true is solving an equation."},
-    [{t:"Work out the value of 2x + 5 when x is 4.", fb:"That is evaluating an expression: a value for x is already given."},
-     {t:"Write 2x + 5 in words.", fb:"That describes an expression; there is no equality to satisfy."},
-     {t:"Add 3 to 2x + 5.", fb:"That builds a new expression, not an equation."}],
+    [{t:"Work out the value of 2x + 5 when x is 4 for the expression.", fb:"That is evaluating an expression: a value for x is already given."},
+     {t:"Write 2x + 5 = 17 in words, as a sentence.", fb:"That describes the statement in words; there is no value to find that makes it true."},
+     {t:"Add 3 to 2x + 5 to make a new expression.", fb:"That builds a new expression, not an equation."}],
     "An equation asks for the value that makes both sides equal. Only the first task does that. The answer is <b>find the value of x that makes 2x + 5 = 17 true</b>.", {}); },
   function(){ return mcq("Which one is an expression?",
     {t:"9 - 3m", fb:"Correct: it is a combination of numbers and a variable with no equals sign."},
@@ -1252,9 +1277,9 @@ E("u2-opposites-zero", 2, ["6.24"], 2, "var", varset([
     "Pair each positive tile with a negative tile: each pair is worth \\(1 + (-1) = 0\\), so five pairs total 0. The answer is <b>0</b>.", {}); },
   function(){ return mcq("Why do \\((+6)\\) and \\((-6)\\) add to zero?",
     {t:"They are the same distance from 0 in opposite directions, so they cancel each other out.", fb:"Correct: equal sizes with opposite signs sum to zero."},
-    [{t:"Because both of them are close to 0.", fb:"Six is not especially close to 0; it is the matching sizes and opposite signs that matter."},
-     {t:"Because adding any two integers gives 0.", fb:"Most pairs do not give 0; only opposites do."},
-     {t:"Because the negative number is ignored in addition.", fb:"The negative number counts fully; it cancels the positive one."}],
+    [{t:"Because both of them are close to 0, and numbers close to 0 add to 0 in pairs like this.", fb:"Six is not especially close to 0; it is the matching sizes and opposite signs that matter."},
+     {t:"Because adding any two integers gives 0, whatever the two integers happen to be in the question.", fb:"Most pairs do not give 0; only opposites do."},
+     {t:"Because the negative number is ignored in addition and does not count toward the total.", fb:"The negative number counts fully; it cancels the positive one."}],
     "On a number line, \\(+6\\) and \\(-6\\) sit the same distance from 0 on opposite sides, so their sum is 0. The answer is <b>they are opposites and cancel</b>.", {}); },
   function(){ return mcq("What must be added to \\(-8\\) to give 0?",
     {t:"8", fb:"Correct: the opposite of -8 is 8, and opposites sum to zero."},
@@ -1567,14 +1592,14 @@ E("u3-between", 3, ["3.5","3.3"], 1, "gen", function(){
 E("u3-misplaced", 3, ["3.6","3.3"], 2, "var", varset([
   function(){ return mcq("The numbers 0.3, \\("+FR(2,5)+"\\), 0.35, \\("+FR(3,4)+"\\) were meant to be in ascending order. Which number is incorrectly placed?",
     {t:"0.35", fb:"Yes: 0.35 is less than 2/5 = 0.4, so it should come before 2/5."},
-    [{t:"0.3", fb:"0.3 is the smallest value, so it belongs first."},
+    [{t:"0.30", fb:"0.3 is the smallest value, so it belongs first."},
      {t:"\\("+FR(2,5)+"\\)", fb:"2/5 = 0.4 belongs after 0.35 and before 0.75; it is not the misplaced one."},
      {t:"\\("+FR(3,4)+"\\)", fb:"3/4 = 0.75 is the largest value, so it belongs last."}],
     "As decimals the values are 0.3, 0.4, 0.35, 0.75. The value 0.35 drops below the one before it, so <b>0.35</b> is incorrectly placed.", {s:1}); },
   function(){ return mcq("The numbers \\("+FR(1,4)+"\\), 0.3, \\("+FR(3,5)+"\\), 0.55 were meant to be in ascending order. Which number is incorrectly placed?",
     {t:"0.55", fb:"Yes: 0.55 is less than 3/5 = 0.6, so it should come before 3/5."},
     [{t:"\\("+FR(1,4)+"\\)", fb:"1/4 = 0.25 is the smallest value, so it belongs first."},
-     {t:"0.3", fb:"0.3 sits between 0.25 and 0.6, so its place is fine."},
+     {t:"0.30", fb:"0.3 sits between 0.25 and 0.6, so its place is fine."},
      {t:"\\("+FR(3,5)+"\\)", fb:"3/5 = 0.6 belongs before 0.55 in a correct list; the error is 0.55 after it."}],
     "As decimals the values are 0.25, 0.3, 0.6, 0.55. The value 0.55 drops below the one before it, so <b>0.55</b> is incorrectly placed.", {s:2}); },
   function(){ return mcq("The numbers 0.15, \\("+FR(1,5)+"\\), 0.28, \\("+FR(1,4)+"\\) were meant to be in ascending order. Which number is incorrectly placed?",
@@ -1597,7 +1622,7 @@ E("u3-misplaced", 3, ["3.6","3.3"], 2, "var", varset([
     "As decimals the values are 0.62, 0.7, 0.68, 0.8. The value 0.68 drops below the one before it, so <b>0.68</b> is incorrectly placed.", {s:5}); },
   function(){ return mcq("The numbers 0.9, \\("+FR(4,5)+"\\), 0.85, \\("+FR(1,2)+"\\) were meant to be in descending order. Which number is incorrectly placed?",
     {t:"0.85", fb:"Yes: in descending order 0.85 should come before 4/5 = 0.8, not after it."},
-    [{t:"0.9", fb:"0.9 is the largest value, so it belongs first in descending order."},
+    [{t:"0.90", fb:"0.9 is the largest value, so it belongs first in descending order."},
      {t:"\\("+FR(4,5)+"\\)", fb:"4/5 = 0.8 belongs after 0.85 in a correct list; the error is 0.85 after it."},
      {t:"\\("+FR(1,2)+"\\)", fb:"1/2 = 0.5 is the smallest value, so it belongs last."}],
     "As decimals the values are 0.9, 0.8, 0.85, 0.5. In descending order each value should drop, but 0.85 rises above 0.8, so <b>0.85</b> is incorrectly placed.", {s:6}); }
@@ -1629,6 +1654,7 @@ E("u3-percent-convert", 3, ["3.7"], 1, "gen", function(){
     if(seen2[key2])continue; seen2[key2]=1;
     ds2.push({t:fmt(pool2[j],3), fb:"That decimal shifts the percent by the wrong number of places: divide by 100."});
   }
+  ds2=precPair(fmt(cor),ds2);
   return mcq("Write "+p+"% as a decimal.",
     {t:fmt(cor), fb:"Yes: dividing "+p+" by 100 moves the decimal point two places left."},
     ds2,
@@ -1648,6 +1674,7 @@ E("u3-frac-to-decimal", 3, ["3.11"], 1, "gen", function(){
     if(seen[key])continue; seen[key]=1;
     ds.push({t:fmt(pool[i],3), fb:"That decimal has a different value: divide the numerator by the denominator to check."});
   }
+  ds=precPair(fmt(v,3),ds);
   var num=w*d+n;
   return mcq("Write \\("+FR(num,d)+"\\) as a decimal.",
     {t:fmt(v,3), fb:"Yes: "+num+" divided by "+d+" gives this decimal."},
@@ -1805,33 +1832,33 @@ E("u3-repeating-to-fraction", 3, ["3.13"], 3, "gen", function(){
 E("u3-approx-example", 3, ["3.14","3.11"], 2, "var", varset([
   function(){ return mcq("Which statement gives an example where a decimal is used as an approximation of the exact value of a fraction?",
     {t:"A recipe uses 0.33 of a cup for \\("+FR(1,3)+"\\) of a cup, since 0.33 is close to but not exactly \\("+FR(1,3)+"\\)", fb:"Yes: 1/3 = 0.333..., so 0.33 is a rounded approximation."},
-    [{t:"A recipe uses 0.25 of a cup for \\("+FR(1,4)+"\\) of a cup", fb:"0.25 is exactly 1/4, so nothing is approximated."},
-     {t:"A ribbon is cut at 0.5 m for \\("+FR(1,2)+"\\) of a metre", fb:"0.5 is exactly 1/2, so nothing is approximated."},
-     {t:"A tank holds 0.4 L for \\("+FR(2,5)+"\\) of a litre", fb:"0.4 is exactly 2/5, so nothing is approximated."}],
+    [{t:"A recipe uses 0.25 of a cup for \\("+FR(1,4)+"\\) of a cup of flour when the cook measures the ingredients for a cake", fb:"0.25 is exactly 1/4, so nothing is approximated."},
+     {t:"A ribbon is cut at 0.5 m for \\("+FR(1,2)+"\\) of a metre of ribbon for the border of a quilt", fb:"0.5 is exactly 1/2, so nothing is approximated."},
+     {t:"A tank holds 0.4 L for \\("+FR(2,5)+"\\) of a litre of water when the tank is filled to that mark on the side", fb:"0.4 is exactly 2/5, so nothing is approximated."}],
     "Only \\("+FR(1,3)+"\\) has a decimal that never ends (0.333...), so writing 0.33 rounds it. The others are exact. The answer is <b>the recipe statement using 0.33</b>.", {s:1}); },
   function(){ return mcq("Which statement gives an example where a decimal is used as an approximation of the exact value of a fraction?",
     {t:"A report says about 0.67 of the class for \\("+FR(2,3)+"\\) of the class, since 0.67 is close to but not exactly \\("+FR(2,3)+"\\)", fb:"Yes: 2/3 = 0.666..., so 0.67 is a rounded approximation."},
-    [{t:"A report says 0.75 of the class for \\("+FR(3,4)+"\\) of the class", fb:"0.75 is exactly 3/4, so nothing is approximated."},
-     {t:"A report says 0.2 of the class for \\("+FR(1,5)+"\\) of the class", fb:"0.2 is exactly 1/5, so nothing is approximated."},
-     {t:"A report says 0.6 of the class for \\("+FR(3,5)+"\\) of the class", fb:"0.6 is exactly 3/5, so nothing is approximated."}],
+    [{t:"A report says 0.75 of the class for \\("+FR(3,4)+"\\) of the class took part in the survey about lunchtime activities", fb:"0.75 is exactly 3/4, so nothing is approximated."},
+     {t:"A report says 0.2 of the class for \\("+FR(1,5)+"\\) of the class chose the same answer in the survey of the whole grade", fb:"0.2 is exactly 1/5, so nothing is approximated."},
+     {t:"A report says 0.6 of the class for \\("+FR(3,5)+"\\) of the class picked that option when the class was surveyed in June", fb:"0.6 is exactly 3/5, so nothing is approximated."}],
     "Only \\("+FR(2,3)+"\\) has a decimal that never ends (0.666...), so writing 0.67 rounds it. The others are exact. The answer is <b>the report statement using 0.67</b>.", {s:2}); },
   function(){ return mcq("Which statement gives an example where a decimal is used as an approximation of the exact value of a fraction?",
     {t:"A trail sign rounds \\("+FR(1,6)+"\\) of the route to 0.17, since the exact decimal keeps going", fb:"Yes: 1/6 = 0.1666..., so 0.17 is a rounded approximation."},
-    [{t:"A trail sign marks \\("+FR(3,10)+"\\) of the route as 0.3", fb:"0.3 is exactly 3/10, so nothing is approximated."},
-     {t:"A trail sign marks \\("+FR(5,8)+"\\) of the route as 0.625", fb:"0.625 is exactly 5/8, so nothing is approximated."},
-     {t:"A trail sign marks \\("+FR(7,20)+"\\) of the route as 0.35", fb:"0.35 is exactly 7/20, so nothing is approximated."}],
+    [{t:"A trail sign marks \\("+FR(3,10)+"\\) of the route as 0.3 of the way from the trailhead to the lake", fb:"0.3 is exactly 3/10, so nothing is approximated."},
+     {t:"A trail sign marks \\("+FR(5,8)+"\\) of the route as 0.625 to the lake lookout", fb:"0.625 is exactly 5/8, so nothing is approximated."},
+     {t:"A trail sign marks \\("+FR(7,20)+"\\) of the route as 0.35 of the way from the trailhead", fb:"0.35 is exactly 7/20, so nothing is approximated."}],
     "Only \\("+FR(1,6)+"\\) has a decimal that never ends (0.1666...), so writing 0.17 rounds it. The others are exact. The answer is <b>the trail sign statement using 0.17</b>.", {s:3}); },
   function(){ return mcq("Which statement gives an example where a decimal is used as an approximation of the exact value of a fraction?",
     {t:"A weather report gives \\("+FR(5,6)+"\\) of the day as about 0.83, since the exact decimal keeps going", fb:"Yes: 5/6 = 0.8333..., so 0.83 is a rounded approximation."},
-    [{t:"A weather report gives \\("+FR(1,8)+"\\) of the day as 0.125", fb:"0.125 is exactly 1/8, so nothing is approximated."},
-     {t:"A weather report gives \\("+FR(9,10)+"\\) of the day as 0.9", fb:"0.9 is exactly 9/10, so nothing is approximated."},
-     {t:"A weather report gives \\("+FR(3,20)+"\\) of the day as 0.15", fb:"0.15 is exactly 3/20, so nothing is approximated."}],
+    [{t:"A weather report gives \\("+FR(1,8)+"\\) of the day as 0.125 spent outdoors in the sunshine", fb:"0.125 is exactly 1/8, so nothing is approximated."},
+     {t:"A weather report gives \\("+FR(9,10)+"\\) of the day as 0.9 spent outdoors in the sunshine and the rain", fb:"0.9 is exactly 9/10, so nothing is approximated."},
+     {t:"A weather report gives \\("+FR(3,20)+"\\) of the day as 0.15 spent outdoors during the day", fb:"0.15 is exactly 3/20, so nothing is approximated."}],
     "Only \\("+FR(5,6)+"\\) has a decimal that never ends (0.8333...), so writing 0.83 rounds it. The others are exact. The answer is <b>the weather statement using 0.83</b>.", {s:4}); },
   function(){ return mcq("Which statement gives an example where a decimal is used as an approximation of the exact value of a fraction?",
     {t:"A gardener waters \\("+FR(1,7)+"\\) of a bed and records it as about 0.14, since the exact decimal keeps going", fb:"Yes: 1/7 = 0.142857..., so 0.14 is a rounded approximation."},
-    [{t:"A gardener waters \\("+FR(2,8)+"\\) of a bed and records it as 0.25", fb:"0.25 is exactly 2/8 = 1/4, so nothing is approximated."},
-     {t:"A gardener waters \\("+FR(4,10)+"\\) of a bed and records it as 0.4", fb:"0.4 is exactly 4/10, so nothing is approximated."},
-     {t:"A gardener waters \\("+FR(6,20)+"\\) of a bed and records it as 0.3", fb:"0.3 is exactly 6/20, so nothing is approximated."}],
+    [{t:"A gardener waters \\("+FR(2,8)+"\\) of a bed and records it as 0.25 with the watering can on a dry morning in July", fb:"0.25 is exactly 2/8 = 1/4, so nothing is approximated."},
+     {t:"A gardener waters \\("+FR(4,10)+"\\) of a bed and records it as 0.4 with the watering can on a dry morning", fb:"0.4 is exactly 4/10, so nothing is approximated."},
+     {t:"A gardener waters \\("+FR(6,20)+"\\) of a bed and records it as 0.3 with the watering can early in the morning", fb:"0.3 is exactly 6/20, so nothing is approximated."}],
     "Only \\("+FR(1,7)+"\\) has a decimal that never ends (0.142857...), so writing 0.14 rounds it. The others are exact. The answer is <b>the gardener statement using 0.14</b>.", {s:5}); }
 ]), ["An approximation happens when the exact decimal never ends, so a rounded decimal is used.", "Start by checking which fraction has a repeating decimal."]);
 
@@ -1893,6 +1920,7 @@ E("u3-frontend-sum", 3, ["6.1","6.4"], 2, "gen", function(){
     if(seen[s2])continue; seen[s2]=1;
     ds.push({t:s2, fb:"Front-end estimation puts the value near "+fmt(Math.round(val))+", so that decimal placement is the wrong size."});
   }
+  ds=precPair(corStr,ds);
   var expr=isSum?(fmt(A,1)+" + "+fmt(B,2)+" + "+fmt(C,3)):(fmt(C,3)+" - "+fmt(A,1));
   var fe=isSum?("the front ends are about "+Math.floor(A)+" + 0 + "+Math.floor(C)):("the front ends are about "+Math.floor(C)+" - "+Math.floor(A));
   return mcq("The digits of the answer to "+expr+" are "+digits+". Using front-end estimation, where does the decimal point belong?",
@@ -1925,6 +1953,7 @@ E("u3-mult-decimals", 3, ["6.7"], 2, "gen", function(){
   }
   var corT=(mode===0?"$":"")+fmt(ans,3);
   ds.forEach(function(o){if(mode===0&&o.t.indexOf("$")!==0)o.t="$"+o.t;});
+  ds=precPair(corT,ds);
   return mcq(prompt,
     {t:corT, fb:"Yes: the multiplication and decimal placement are both right."},
     ds,
@@ -1961,6 +1990,7 @@ E("u3-frontend-prod-quot", 3, ["6.2","6.3"], 2, "gen", function(){
     if(seen[s2])continue; seen[s2]=1;
     ds.push({t:s2, fb:"Front-end estimation gives a different size: "+feText+"."});
   }
+  ds=precPair(corStr,ds);
   return mcq(prompt,
     {t:corStr, fb:"Yes: "+feText+", which matches this placement."},
     ds,
@@ -1991,6 +2021,7 @@ E("u3-div-decimals", 3, ["6.8"], 2, "gen", function(){
   }
   var corT=(money?"$":"")+fmt(q,3);
   ds.forEach(function(o){if(money&&o.t.indexOf("$")!==0)o.t="$"+o.t;});
+  ds=precPair(corT,ds);
   return mcq(prompt,
     {t:corT, fb:"Yes: "+fmt(q,3)+" times "+fmt(dv,1)+" gives back "+fmt(dvd,3)+"."},
     ds,
@@ -2056,6 +2087,7 @@ E("u3-order-ops-dec", 3, ["6.10"], 3, "gen", function(){
     if(seen[k])continue; seen[k]=1;
     ds.push({t:k, fb:i===0?"That works strictly left to right: brackets first, then multiply and divide, then add and subtract.":"That value comes from an arithmetic slip: redo each operation in order."});
   }
+  ds=precPair(fmt(ans,3),ds);
   return mcq(prompt,
     {t:fmt(ans,3), fb:"Yes: brackets first, then multiplication and division, then addition and subtraction."},
     ds,
@@ -2077,6 +2109,7 @@ E("u3-percent-of", 3, ["6.11","3.7"], 2, "gen", function(){
       if(seen[k])continue; seen[k]=1;
       ds.push({t:k, fb:"Convert the percent to a decimal first ("+p+"% = "+fmt(p/100)+"), then multiply by "+N+"."});
     }
+    ds=precPair(fmt(ans,2),ds);
     return mcq(pick(ctxs),
       {t:fmt(ans,2), fb:"Yes: "+p+"% = "+fmt(p/100)+", and "+fmt(p/100)+" of "+N+" is "+fmt(ans,2)+"."},
       ds,
@@ -2128,7 +2161,7 @@ E("u3-reasonableness", 3, ["6.4"], 2, "gen", function(){
       {t:"Estimate "+Math.round(a/10)*10+" x "+b+" = "+est+"; the answer should be near "+est+", so "+fmt(given,1)+" is too small", fb:"Yes: the estimate exposes a misplaced decimal point."},
       [{t:"The answer is reasonable because "+a+" x "+b+" has no decimal points in it", fb:"Whole-number factors can still give an answer of the wrong size: estimate to check."},
        {t:"Estimate "+Math.round(a/10)*10+" x "+b+" = "+est+"; since "+fmt(given,1)+" is a whole number it must be right", fb:"The estimate says the product should be near "+est+", far from the given value."},
-       {t:"Add "+a+" + "+b+" = "+(a+b)+" to check the multiplication", fb:"Adding does not check a product: use a rounded multiplication estimate."}],
+       {t:"Add "+a+" + "+b+" = "+(a+b)+" to check the multiplication, using the same two numbers", fb:"Adding does not check a product: use a rounded multiplication estimate."}],
       "Estimate with rounded numbers: "+Math.round(a/10)*10+" x "+b+" = "+est+". The true product is "+cor+", so "+fmt(given,1)+" is far too small. The answer is <b>the estimate check</b>.",
       {mode:"mult"});
   }
@@ -2139,16 +2172,16 @@ E("u3-reasonableness", 3, ["6.4"], 2, "gen", function(){
       {t:"Estimate "+Math.round(x)+" + "+Math.round(y)+" = "+est2+"; the answer should be near "+est2+", so "+fmt(giv,2)+" is too large", fb:"Yes: rounding each addend exposes the error."},
       [{t:"The answer is reasonable because the cents digits add up correctly", fb:"Correct cents do not guarantee the whole-number part: estimate the full size."},
        {t:"Estimate "+Math.round(x)+" + "+Math.round(y)+" = "+est2+"; since the given answer ends in .00 it must be right", fb:"The estimate says the sum should be near "+est2+", far from the given value."},
-       {t:"Multiply the two numbers to check the addition", fb:"Multiplication does not check an addition: use a rounded addition estimate."}],
+       {t:"Multiply the two numbers to check the addition, with the same two numbers", fb:"Multiplication does not check an addition: use a rounded addition estimate."}],
       "Estimate with rounded numbers: "+Math.round(x)+" + "+Math.round(y)+" = "+est2+". The true sum is "+fmt(s,2)+", so "+fmt(giv,2)+" is too large. The answer is <b>the estimate check</b>.",
       {mode:"add"});
   }
   var T=ri(120,360), n=ri(4,8), per=T/n, giv2=per*10, est3=Math.round(T/10)*10/n;
   return mcq("Ravi calculates "+T+" / "+n+" = "+fmt(giv2,1)+". Which check shows whether his answer is reasonable?",
     {t:"Estimate "+Math.round(T/10)*10+" / "+n+" = "+fmt(est3,1)+"; the answer should be near "+fmt(est3,1)+", so "+fmt(giv2,1)+" is too large", fb:"Yes: the estimate exposes a misplaced decimal point."},
-    [{t:"The answer is reasonable because "+n+" is a small divisor", fb:"A small divisor does not guarantee the size: estimate to check."},
-     {t:"Estimate "+Math.round(T/10)*10+" / "+n+" = "+fmt(est3,1)+"; since "+fmt(giv2,1)+" is bigger than "+T+" divided by 10 it must be right", fb:"The estimate says the quotient should be near "+fmt(est3,1)+", far from the given value."},
-     {t:"Subtract "+n+" from "+T+" to check the division", fb:"Subtraction does not check a quotient: use a rounded division estimate."}],
+    [{t:"The answer is reasonable because "+n+" is a small divisor for a division question", fb:"A small divisor does not guarantee the size: estimate to check."},
+     {t:"Estimate "+Math.round(T/10)*10+" / "+n+" = "+fmt(est3,1)+"; since "+fmt(giv2,1)+" beats a tenth of "+T+" it must be right", fb:"The estimate says the quotient should be near "+fmt(est3,1)+", far from the given value."},
+     {t:"Subtract "+n+" from "+T+" to check the division, rather than estimating the quotient", fb:"Subtraction does not check a quotient: use a rounded division estimate."}],
     "Estimate with rounded numbers: "+Math.round(T/10)*10+" / "+n+" = "+fmt(est3,1)+". The true quotient is "+fmt(per,2)+", so "+fmt(giv2,1)+" is too large. The answer is <b>the estimate check</b>.",
     {mode:"div"});
 }, ["A quick estimate with rounded numbers tells you the size the answer should be.", "Start by rounding each number to a friendly value and redoing the operation."]);
@@ -2278,10 +2311,10 @@ E("u4-radius-diameter", 4, ["9.11"], 1, "gen", function(){
     var candR=[r,3*r,d+2,4*r,r+1,d+10], seenR={}; seenR[d]=1; var dsR=[];
     for(var i=0;i<candR.length&&dsR.length<3;i++){
       if(seenR[candR[i]])continue; seenR[candR[i]]=1;
-      dsR.push({t:candR[i]+" cm", fb:"The diameter is exactly twice the radius: multiply "+r+" by 2."});
+      dsR.push({t:String(candR[i]), fb:"The diameter is exactly twice the radius: multiply "+r+" by 2."});
     }
-    var q=mcq("The circle in the diagram has radius "+r+" cm. What is its diameter?",
-      {t:d+" cm", fb:"Yes: the diameter is twice the radius."},
+    var q=mcq("The circle in the diagram has radius "+r+" cm. What is its diameter, in centimetres?",
+      {t:String(d), fb:"Yes: the diameter is twice the radius."},
       dsR,
       "The diameter passes through the centre and is made of two radii: \\(d = 2 \\times "+r+" = "+d+"\\) cm. The answer is <b>"+d+" cm</b>.",
       {mode:"r", r:r});
@@ -2292,10 +2325,10 @@ E("u4-radius-diameter", 4, ["9.11"], 1, "gen", function(){
   var candD=[d2,d2-2,2*d2,r2+3,d2+4,r2-1], seenD={}; seenD[r2]=1; var dsD=[];
   for(var j=0;j<candD.length&&dsD.length<3;j++){
     if(candD[j]<=0||seenD[candD[j]])continue; seenD[candD[j]]=1;
-    dsD.push({t:candD[j]+" cm", fb:"The radius is exactly half the diameter: divide "+d2+" by 2."});
+    dsD.push({t:String(candD[j]), fb:"The radius is exactly half the diameter: divide "+d2+" by 2."});
   }
-  var q2=mcq("The circle in the diagram has diameter "+d2+" cm. What is its radius?",
-    {t:r2+" cm", fb:"Yes: the radius is half the diameter."},
+  var q2=mcq("The circle in the diagram has diameter "+d2+" cm. What is its radius, in centimetres?",
+    {t:String(r2), fb:"Yes: the radius is half the diameter."},
     dsD,
     "The radius is half the diameter: \\(r = "+d2+" \\div 2 = "+r2+"\\) cm. The answer is <b>"+r2+" cm</b>.",
     {mode:"d", d:d2});
@@ -2304,17 +2337,17 @@ E("u4-radius-diameter", 4, ["9.11"], 1, "gen", function(){
 }, ["The diameter is two radii end to end.", "Start by picturing the radius from the centre to the edge, then double or halve."]);
 
 E("u4-draw-circle", 4, ["9.12"], 1, "var", varset([
-  function(){ return mcq("To draw a circle with radius 6 cm using a compass, the compass should be opened so the point and pencil are how far apart?",
-    {t:"6 cm", fb:"Yes: the compass opening is the radius."},
-    [{t:"12 cm", fb:"12 cm is the diameter: the compass opening matches the radius, not the diameter."},
-     {t:"3 cm", fb:"That is half the radius: set the opening equal to the radius."},
-     {t:"36 cm", fb:"That multiplies 6 by 6: the opening is just the radius length."}],
+  function(){ return mcq("To draw a circle with radius 6 cm using a compass, the compass should be opened so the point and pencil are how far apart, in centimetres?",
+    {t:"6", fb:"Yes: the compass opening is the radius."},
+    [{t:"12", fb:"12 cm is the diameter: the compass opening matches the radius, not the diameter."},
+     {t:"3", fb:"That is half the radius: set the opening equal to the radius."},
+     {t:"36", fb:"That multiplies 6 by 6: the opening is just the radius length."}],
     "A compass draws a circle whose radius equals the opening between point and pencil. For radius 6 cm, open it <b>6 cm</b>.", {s:1}); },
-  function(){ return mcq("To draw a circle with diameter 10 cm using a compass, the compass should be opened so the point and pencil are how far apart?",
-    {t:"5 cm", fb:"Yes: the opening is the radius, which is half of 10 cm."},
-    [{t:"10 cm", fb:"That is the diameter: the opening must be the radius, half of that."},
-     {t:"20 cm", fb:"That doubles the diameter: halve it to get the radius."},
-     {t:"2 cm", fb:"That divides by 5: the radius is half the diameter, 5 cm."}],
+  function(){ return mcq("To draw a circle with diameter 10 cm using a compass, the compass should be opened so the point and pencil are how far apart, in centimetres?",
+    {t:"5", fb:"Yes: the opening is the radius, which is half of 10 cm."},
+    [{t:"10", fb:"That is the diameter: the opening must be the radius, half of that."},
+     {t:"20", fb:"That doubles the diameter: halve it to get the radius."},
+     {t:"2", fb:"That divides by 5: the radius is half the diameter, 5 cm."}],
     "The compass opening is the radius. Radius = 10 / 2 = 5 cm, so open it <b>5 cm</b>.", {s:2}); },
   function(){ return mcq("Which method can draw a circle when no compass is available?",
     {t:"Trace around a round mug and mark its centre", fb:"Yes: a round object gives a true circle shape to trace."},
@@ -2322,17 +2355,17 @@ E("u4-draw-circle", 4, ["9.12"], 1, "var", varset([
      {t:"Use a ruler to draw four straight sides", fb:"Straight sides make a quadrilateral, not a circle."},
      {t:"Roll a coin once along a ruler", fb:"Rolling draws a straight path, not a circle."}],
     "Tracing a round object gives a closed curve at a fixed distance from its centre, which is a circle. The answer is <b>trace around a round mug</b>.", {s:3}); },
-  function(){ return mcq("A student draws a circle with a compass opened to 4 cm. What is the diameter of the circle drawn?",
-    {t:"8 cm", fb:"Yes: the opening is the radius 4 cm, so the diameter is double."},
-    [{t:"4 cm", fb:"That is the radius (the compass opening): double it for the diameter."},
-     {t:"2 cm", fb:"That halves the radius: the diameter is twice the radius."},
-     {t:"16 cm", fb:"That squares the radius: the diameter is two radii, 8 cm."}],
+  function(){ return mcq("A student draws a circle with a compass opened to 4 cm. What is the diameter of the circle drawn, in centimetres?",
+    {t:"8", fb:"Yes: the opening is the radius 4 cm, so the diameter is double."},
+    [{t:"4", fb:"That is the radius (the compass opening): double it for the diameter."},
+     {t:"2", fb:"That halves the radius: the diameter is twice the radius."},
+     {t:"16", fb:"That squares the radius: the diameter is two radii, 8 cm."}],
     "The compass opening is the radius, 4 cm. Diameter = 2 x 4 = <b>8 cm</b>.", {s:4}); },
-  function(){ return mcq("To draw a circle with diameter 14 cm using a compass, the compass should be opened so the point and pencil are how far apart?",
-    {t:"7 cm", fb:"Yes: the opening is the radius, half of 14 cm."},
-    [{t:"14 cm", fb:"That is the diameter: the opening must be the radius, half of that."},
-     {t:"28 cm", fb:"That doubles the diameter: halve it to get the radius."},
-     {t:"3.5 cm", fb:"That is a quarter of the diameter: the radius is half, 7 cm."}],
+  function(){ return mcq("To draw a circle with diameter 14 cm using a compass, the compass should be opened so the point and pencil are how far apart, in centimetres?",
+    {t:"7", fb:"Yes: the opening is the radius, half of 14 cm."},
+    [{t:"14.0", fb:"That is the diameter: the opening must be the radius, half of that."},
+     {t:"28", fb:"That doubles the diameter: halve it to get the radius."},
+     {t:"3.5", fb:"That is a quarter of the diameter: the radius is half, 7 cm."}],
     "The compass opening is the radius. Radius = 14 / 2 = 7 cm, so open it <b>7 cm</b>.", {s:5}); }
 ]), ["The compass opening is always the radius of the circle it draws.", "Start by finding the radius of the circle you want."]);
 
@@ -2366,8 +2399,8 @@ E("u4-pi-ratio", 4, ["9.8"], 2, "gen", function(){
     return mcq("A circle has circumference "+fmt(C,2)+" cm and diameter "+d+" cm. What is the value of circumference divided by diameter for this circle?",
       {t:"3.14", fb:"Yes: for every circle, C/d is the constant pi, about 3.14."},
       [{t:"0.32", fb:"That is roughly d/C, the division the other way around."},
-       {t:"31.4", fb:"That is ten times too large: pi is a little more than 3."},
-       {t:fmt(C-d,2), fb:"That subtracts instead of dividing: pi is a ratio, C divided by d."}],
+       {t:"31.40", fb:"That is ten times too large: pi is a little more than 3."},
+       {t:fmtF(C-d,2), fb:"That subtracts instead of dividing: pi is a ratio, C divided by d."}],
       "\\[ \\begin{aligned} \\pi &= "+FR("C","d")+" = "+fmt(C,2)+" \\div "+d+" \\\\ &= 3.14 \\end{aligned} \\] The answer is <b>3.14</b>.",
       {mode:"ratio", d:d});
   }
@@ -2396,10 +2429,10 @@ E("u4-circumference", 4, ["9.10","9.8"], 2, "gen", function(){
     for(var i=0;i<pool.length&&ds.length<3;i++){
       var k=fmtF(pool[i],2);
       if(seen[k])continue; seen[k]=1;
-      ds.push({t:k+" cm", fb:i===2?"That uses the area formula with the radius: circumference is pi times diameter.":"Check the formula: C = pi x d with pi = 3.14."});
+      ds.push({t:k, fb:i===2?"That uses the area formula with the radius: circumference is pi times diameter.":"Check the formula: C = pi x d with pi = 3.14."});
     }
-    var q=mcq("What is the circumference of the circle in the diagram? Use 3.14 for pi.",
-      {t:fmtF(C,2)+" cm", fb:"Yes: C = 3.14 x "+d+" = "+fmtF(C,2)+" cm."},
+    var q=mcq("What is the circumference of the circle in the diagram, in centimetres? Use 3.14 for pi.",
+      {t:fmtF(C,2), fb:"Yes: C = 3.14 x "+d+" = "+fmtF(C,2)+" cm."},
       ds,
       "\\[ \\begin{aligned} C &= \\pi d \\\\ &= 3.14 \\times "+d+" \\\\ &= "+fmtF(C,2)+" \\text{ cm} \\end{aligned} \\] The answer is <b>"+fmtF(C,2)+" cm</b>.",
       {mode:"d", d:d});
@@ -2412,10 +2445,10 @@ E("u4-circumference", 4, ["9.10","9.8"], 2, "gen", function(){
   for(var j=0;j<pool2.length&&ds2.length<3;j++){
     var k2=fmtF(pool2[j],2);
     if(seen2[k2])continue; seen2[k2]=1;
-    ds2.push({t:k2+" cm", fb:j===1?"That uses the area formula: circumference is 2 x pi x r.":"Check the formula: C = 2 x pi x r with pi = 3.14."});
+    ds2.push({t:k2, fb:j===1?"That uses the area formula: circumference is 2 x pi x r.":"Check the formula: C = 2 x pi x r with pi = 3.14."});
   }
-  var q2=mcq("What is the circumference of the circle in the diagram? Use 3.14 for pi.",
-    {t:fmtF(C2,2)+" cm", fb:"Yes: C = 2 x 3.14 x "+r+" = "+fmtF(C2,2)+" cm."},
+  var q2=mcq("What is the circumference of the circle in the diagram, in centimetres? Use 3.14 for pi.",
+    {t:fmtF(C2,2), fb:"Yes: C = 2 x 3.14 x "+r+" = "+fmtF(C2,2)+" cm."},
     ds2,
     "\\[ \\begin{aligned} C &= 2\\pi r \\\\ &= 2 \\times 3.14 \\times "+r+" \\\\ &= "+fmtF(C2,2)+" \\text{ cm} \\end{aligned} \\] The answer is <b>"+fmtF(C2,2)+" cm</b>.",
     {mode:"r", r:r});
@@ -2438,9 +2471,9 @@ E("u4-para-from-rect", 4, ["9.1"], 2, "var", varset([
     "The rearranged rectangle measures 8 cm by 5 cm: \\(A = 8 \\times 5 = 40\\) cm². The answer is <b>40 cm²</b>.", {s:2}); },
   function(){ return mcq("Why does cutting a parallelogram and rearranging the pieces into a rectangle not change the area?",
     {t:"No area is added or removed; the same pieces make the new shape", fb:"Yes: rearranging pieces keeps the total area the same."},
-    [{t:"A rectangle always has the same area as any parallelogram", fb:"Only the rectangle built from the same pieces, with the same base and height, matches."},
-     {t:"The cut makes the shape smaller but the move makes it bigger", fb:"Nothing is gained or lost: the pieces are identical in total."},
-     {t:"The perimeter stays the same, so the area does too", fb:"The perimeter can change when pieces move: it is the pieces themselves that preserve area."}],
+    [{t:"A rectangle always has the same area as any parallelogram with any base", fb:"Only the rectangle built from the same pieces, with the same base and height, matches."},
+     {t:"The cut makes the shape smaller but the move makes it bigger in the end", fb:"Nothing is gained or lost: the pieces are identical in total."},
+     {t:"The perimeter stays the same, so the area does too, every time", fb:"The perimeter can change when pieces move: it is the pieces themselves that preserve area."}],
     "The new shape is built from exactly the same pieces, so its area equals the parallelogram's area. The answer is <b>no area is added or removed</b>.", {s:3}); },
   function(){ return mcq("A parallelogram with base 11 cm and height 6 cm is rearranged into a rectangle. What are the side lengths of that rectangle?",
     {t:"11 cm and 6 cm", fb:"Yes: the rectangle takes the parallelogram's base and height as its sides."},
@@ -2505,7 +2538,7 @@ E("u4-triangle-from", 4, ["9.4"], 2, "var", varset([
     {t:"Two identical copies of the triangle fit together to make that parallelogram", fb:"Yes: the triangle is exactly one of the two equal pieces."},
     [{t:"Triangles always have half the area of every parallelogram", fb:"The match needs the same base and height, not just any parallelogram."},
      {t:"The triangle has three sides and the parallelogram has four", fb:"Side count is not the reason: it is the two copies filling the parallelogram."},
-     {t:"The height of a triangle is half the height of a parallelogram", fb:"They share the same height here: it is the area that halves."}],
+     {t:"The height of a triangle is half the height of a parallelogram built on the same base", fb:"They share the same height here: it is the area that halves."}],
     "Putting two identical triangles together builds the parallelogram, so one triangle is half its area. The answer is <b>two copies of the triangle make the parallelogram</b>.", {s:4}); },
   function(){ return mcq("A parallelogram with base 14 cm and height 5 cm is split into two identical triangles by a diagonal. What is the area of one triangle?",
     {t:"35 cm²", fb:"Yes: the parallelogram's area is 70 cm², and each triangle is half."},
@@ -2642,10 +2675,10 @@ E("u4-circle-context", 4, ["9.10"], 3, "gen", function(){
     for(var i=0;i<pool.length&&ds.length<3;i++){
       var k=fmtF(pool[i],2);
       if(seen[k])continue; seen[k]=1;
-      ds.push({t:k+" m", fb:i===1?"That uses the radius in the circumference: C = pi x d, then multiply by the number of turns and convert to metres.":"Find one circumference first (pi x d), multiply by the turns, and change centimetres to metres."});
+      ds.push({t:k, fb:i===1?"That uses the radius in the circumference: C = pi x d, then multiply by the number of turns and convert to metres.":"Find one circumference first (pi x d), multiply by the turns, and change centimetres to metres."});
     }
     return mcq("A bicycle wheel has diameter "+d+" cm. The wheel turns "+n+" times on a ride. Using 3.14 for pi, how far does the bicycle travel, in metres?",
-      {t:fmtF(dist,2)+" m", fb:"Yes: one turn covers one circumference, and the total converts to "+fmtF(dist,2)+" m."},
+      {t:fmtF(dist,2), fb:"Yes: one turn covers one circumference, and the total converts to "+fmtF(dist,2)+" m."},
       ds,
       "\\[ \\begin{aligned} C &= 3.14 \\times "+d+" = "+fmtF(3.14*d,2)+" \\text{ cm} \\\\ \\text{distance} &= "+fmtF(3.14*d,2)+" \\times "+n+" = "+fmtF(3.14*d*n,2)+" \\text{ cm} \\\\ &= "+fmtF(dist,2)+" \\text{ m} \\end{aligned} \\] The answer is <b>"+fmtF(dist,2)+" m</b>.",
       {mode:"wheel", d:d, n:n});
@@ -2656,10 +2689,10 @@ E("u4-circle-context", 4, ["9.10"], 3, "gen", function(){
   for(var j=0;j<pool2.length&&ds2.length<3;j++){
     var k2=fmtF(pool2[j],2);
     if(seen2[k2])continue; seen2[k2]=1;
-    ds2.push({t:k2+" m", fb:j===1?"That is the area of the garden: edging follows the circumference, and it goes around twice.":"Edging follows the circumference: find C = 2 x pi x r, then double it for two loops."});
+    ds2.push({t:k2, fb:j===1?"That is the area of the garden: edging follows the circumference, and it goes around twice.":"Edging follows the circumference: find C = 2 x pi x r, then double it for two loops."});
   }
-  return mcq("A circular garden has radius "+r+" m. Edging rope goes around the garden twice. Using 3.14 for pi, how much rope is needed?",
-    {t:fmtF(rope,2)+" m", fb:"Yes: one loop is "+fmtF(2*3.14*r,2)+" m, and two loops double it."},
+  return mcq("A circular garden has radius "+r+" m. Edging rope goes around the garden twice. Using 3.14 for pi, how much rope is needed, in metres?",
+    {t:fmtF(rope,2), fb:"Yes: one loop is "+fmtF(2*3.14*r,2)+" m, and two loops double it."},
     ds2,
     "\\[ \\begin{aligned} C &= 2 \\times 3.14 \\times "+r+" = "+fmtF(2*3.14*r,2)+" \\text{ m} \\\\ \\text{rope} &= 2 \\times "+fmtF(2*3.14*r,2)+" = "+fmtF(rope,2)+" \\text{ m} \\end{aligned} \\] The answer is <b>"+fmtF(rope,2)+" m</b>.",
     {mode:"rope", r:r});
@@ -2698,9 +2731,9 @@ E("u4-graph-attributes", 4, ["11.2"], 1, "gen", function(){
 E("u4-graph-media", 4, ["11.1"], 2, "var", varset([
   function(){ return mcq("A newspaper circle graph and a magazine circle graph both show favourite sports. To compare how popular soccer is in each survey, what should you compare?",
     {t:"The percent (or sector size) for soccer in each graph", fb:"Yes: percents compare fairly even when the surveys have different sizes."},
-    [{t:"The colours used for soccer in each graph", fb:"Colours are just labels: they carry no size information."},
-     {t:"The radius of each circle", fb:"A bigger printed circle does not mean more people: compare the percents."},
-     {t:"The titles of the two graphs", fb:"Titles say the topic, not the sizes: compare the soccer percents."}],
+    [{t:"The colours used for soccer in each graph and in the legend", fb:"Colours are just labels: they carry no size information."},
+     {t:"The radius of each circle as it is printed on the page", fb:"A bigger printed circle does not mean more people: compare the percents."},
+     {t:"The titles of the two graphs at the top of each page", fb:"Titles say the topic, not the sizes: compare the soccer percents."}],
     "Circle graphs report parts of a whole as percents, so soccer's share is compared through <b>the percent for soccer in each graph</b>.", {s:1}); },
   function(){ return mcq("Graph A surveyed 200 students and Graph B surveyed 50 students. In both graphs, 40% chose hockey. Which statement is true?",
     {t:"More students chose hockey in Graph A (80) than in Graph B (20)", fb:"Yes: 40% of 200 is 80, and 40% of 50 is 20."},
@@ -2710,21 +2743,21 @@ E("u4-graph-media", 4, ["11.1"], 2, "var", varset([
     "40% of 200 = 80 students and 40% of 50 = 20 students, so <b>more students chose hockey in Graph A</b>.", {s:2}); },
   function(){ return mcq("Why do news stories often use circle graphs for survey results?",
     {t:"They show each answer as a part of the whole survey at a glance", fb:"Yes: sector sizes show shares of the total clearly."},
-    [{t:"They show how values change hour by hour", fb:"Change over time is a line graph's job: circle graphs show parts of one whole."},
-     {t:"They list every single response in order", fb:"Circle graphs group responses into sectors: they do not list individuals."},
-     {t:"They make small percents look larger than they are", fb:"An honest circle graph keeps sector sizes proportional to the percents."}],
+    [{t:"They show how values change hour by hour through the day as news breaks", fb:"Change over time is a line graph's job: circle graphs show parts of one whole."},
+     {t:"They list every single response in order, one after another", fb:"Circle graphs group responses into sectors: they do not list individuals."},
+     {t:"They make small percents look larger than they are in the data", fb:"An honest circle graph keeps sector sizes proportional to the percents."}],
     "A circle graph turns each answer into a sector sized by its share of the total, so it <b>shows parts of a whole at a glance</b>.", {s:3}); },
   function(){ return mcq("A blog post shows a circle graph with no title, no labels and no percents. What is the best conclusion?",
     {t:"The graph cannot be interpreted reliably; the missing labels and values are needed", fb:"Yes: a circle graph needs a title, labels or a legend, and values to read it."},
-    [{t:"The largest sector must be the most popular answer, so the graph is fine", fb:"Without labels you cannot say what any sector means, even the largest."},
-     {t:"The graph is about sports because most circle graphs are", fb:"Guessing the topic is not interpreting: the title is missing."},
-     {t:"Each sector must be 25% because there are four sectors", fb:"Sectors are sized by data, not split evenly by default."}],
+    [{t:"The largest sector must be the most popular answer, so the graph is fine to use", fb:"Without labels you cannot say what any sector means, even the largest."},
+     {t:"The graph is about sports because most circle graphs are about sports", fb:"Guessing the topic is not interpreting: the title is missing."},
+     {t:"Each sector must be 25% because there are four sectors in the whole graph as printed", fb:"Sectors are sized by data, not split evenly by default."}],
     "Circle graphs are read through their title, labels and percents; with all of them missing, <b>the graph cannot be interpreted reliably</b>.", {s:4}); },
   function(){ return mcq("Two websites show circle graphs of the same class survey. Website 1 lists percents on every sector; Website 2 lists only colours with a legend. Which graph is easier to compare with a third survey, and why?",
     {t:"Website 1, because its percents can be compared directly with any other survey's percents", fb:"Yes: percents are the common language of circle graphs."},
-    [{t:"Website 2, because colours are easier to remember than numbers", fb:"Colours only name categories: comparing surveys needs the percents."},
-     {t:"They are equally easy, because both show the same sectors", fb:"Reading amounts from Website 2 needs measuring angles: Website 1 states them."},
-     {t:"Neither, because circle graphs from different websites can never be compared", fb:"They can be compared: percents put different surveys on the same scale."}],
+    [{t:"Website 2, because colours are easier to remember than numbers when comparing surveys", fb:"Colours only name categories: comparing surveys needs the percents."},
+     {t:"They are equally easy, because both show the same sectors and the same data", fb:"Reading amounts from Website 2 needs measuring angles: Website 1 states them."},
+     {t:"Neither, because circle graphs from different websites can never be compared with each other", fb:"They can be compared: percents put different surveys on the same scale."}],
     "Percents let you compare shares across surveys directly, so <b>Website 1 is easier to compare</b>.", {s:5}); }
 ]), ["Circle graphs in media are read through their titles, labels and percents.", "Start by asking what information each graph actually gives you."]);
 
@@ -3189,9 +3222,9 @@ E("u5-reasonable", 5, ["6.23","6.22"], 3, "var", varset([
   function(){
     return mcq("A recipe needs "+u5M(3,4)+" of a cup of sugar. Ben measures "+u5M(5,4)+" of a cup and says that is exactly right. Which statement best explains the check?",
       {t:"Ben measured too much: 5/4 is more than one whole cup, and 3/4 is less than one whole cup.",fb:"Yes: comparing each amount with the benchmark of one whole cup shows 5/4 is too much."},
-      [{t:"Ben is right: 5/4 and 3/4 have the same denominator, so they are equal.",fb:"Sharing a denominator does not make fractions equal. The numerators 5 and 3 are different."},
-       {t:"Ben measured too little: 5/4 is smaller than 3/4 because 5 is more than 3.",fb:"With the same denominator, a larger numerator means a larger fraction, not a smaller one."},
-       {t:"There is no way to compare the amounts without a common denominator.",fb:"The denominators already match here, and comparing with one whole cup settles it."}],
+      [{t:"Ben is right: 5/4 and 3/4 have the same denominator, so they are equal, whatever the numerators.",fb:"Sharing a denominator does not make fractions equal. The numerators 5 and 3 are different."},
+       {t:"Ben measured too little: 5/4 is smaller than 3/4 because 5 is more than 3, by that reasoning.",fb:"With the same denominator, a larger numerator means a larger fraction, not a smaller one."},
+       {t:"There is no way to compare the amounts without a common denominator in this question.",fb:"The denominators already match here, and comparing with one whole cup settles it."}],
       "Compare both amounts with one whole cup. "+u5M(3,4)+" is less than one whole cup, while "+u5M(5,4)+" is one whole cup plus "+u5M(1,4)+". So <b>Ben measured too much</b>.",
       {mode:"reasonable-3"});
   },
@@ -3313,7 +3346,7 @@ E("u6-preservation-next", 6, ["8.1","8.2"], 1, "gen", function(){
     var a=ri(2,12),b=ri(a+2,a+16);
     prompt="To solve \\("+v+" + "+a+" = "+b+"\\), which step isolates \\("+v+"\\) and keeps the equation balanced?";
     corr={t:"Subtract "+a+" from both sides.",fb:"Yes: subtracting the same amount from both sides keeps the balance and leaves "+v+" alone on its side."};
-    distr=[{t:"Subtract "+a+" from the left side only.",fb:"That changes only one side, so the two sides would no longer be equal."},
+    distr=[{t:"Subtract "+a+" from the left only.",fb:"That changes only one side, so the two sides would no longer be equal."},
            {t:"Add "+a+" to both sides.",fb:"That keeps the balance, but it moves away from isolating "+v+": the left side would become "+v+" + "+(2*a)+"."},
            {t:"Subtract "+b+" from both sides.",fb:"That keeps the balance, but it does not remove the "+a+" that is added to "+v+"."}];
     sol="Preservation of equality: whatever is done to one side must be done to the other. The "+a+" added to "+v+" is undone by subtracting "+a+", and it must happen on both sides.\\[ \\begin{aligned} "+v+" + "+a+" - "+a+" &= "+b+" - "+a+" \\\\ "+v+" &= "+(b-a)+" \\end{aligned} \\] The step is <b>subtract "+a+" from both sides</b>.";
@@ -3321,7 +3354,7 @@ E("u6-preservation-next", 6, ["8.1","8.2"], 1, "gen", function(){
     var a2=ri(2,12),b2=ri(2,16);if(b2===a2)b2=a2+3;
     prompt="To solve \\("+v+" - "+a2+" = "+b2+"\\), which step isolates \\("+v+"\\) and keeps the equation balanced?";
     corr={t:"Add "+a2+" to both sides.",fb:"Yes: adding the same amount to both sides keeps the balance and leaves "+v+" alone on its side."};
-    distr=[{t:"Add "+a2+" to the right side only.",fb:"That changes only one side, so the two sides would no longer be equal."},
+    distr=[{t:"Add "+a2+" to the right only.",fb:"That changes only one side, so the two sides would no longer be equal."},
            {t:"Subtract "+a2+" from both sides.",fb:"That keeps the balance, but it moves away from isolating "+v+": the left side would become "+v+" - "+(2*a2)+"."},
            {t:"Add "+b2+" to both sides.",fb:"That keeps the balance, but it does not remove the "+a2+" that is subtracted from "+v+"."}];
     sol="Preservation of equality: whatever is done to one side must be done to the other. The "+a2+" subtracted from "+v+" is undone by adding "+a2+", and it must happen on both sides.\\[ \\begin{aligned} "+v+" - "+a2+" + "+a2+" &= "+b2+" + "+a2+" \\\\ "+v+" &= "+(b2+a2)+" \\end{aligned} \\] The step is <b>add "+a2+" to both sides</b>.";
@@ -3329,7 +3362,7 @@ E("u6-preservation-next", 6, ["8.1","8.2"], 1, "gen", function(){
     var a3=ri(2,9),x3=ri(2,12),b3=a3*x3;
     prompt="To solve \\("+a3+v+" = "+b3+"\\), which step isolates \\("+v+"\\) and keeps the equation balanced?";
     corr={t:"Divide both sides by "+a3+".",fb:"Yes: dividing both sides by the same number keeps the balance and leaves "+v+" alone on its side."};
-    distr=[{t:"Divide the left side by "+a3+" only.",fb:"That changes only one side, so the two sides would no longer be equal."},
+    distr=[{t:"Divide the left by "+a3+" only.",fb:"That changes only one side, so the two sides would no longer be equal."},
            {t:"Multiply both sides by "+a3+".",fb:"That keeps the balance, but it moves away from isolating "+v+": the left side would become "+(a3*a3)+v+"."},
            {t:"Subtract "+a3+" from both sides.",fb:"In "+a3+v+" the variable is multiplied by "+a3+", and subtraction does not undo multiplication."}];
     sol="Preservation of equality: whatever is done to one side must be done to the other. The multiplication by "+a3+" is undone by dividing by "+a3+", and it must happen on both sides.\\[ \\begin{aligned} "+a3+v+" \\div "+a3+" &= "+b3+" \\div "+a3+" \\\\ "+v+" &= "+x3+" \\end{aligned} \\] The step is <b>divide both sides by "+a3+"</b>.";
@@ -3523,9 +3556,9 @@ E("u6-verify-two-step", 6, ["8.16","8.17"], 2, "gen", function(){
   var corrStmt=cand+" substituted: "+a+"("+cand+") + "+b+" = "+lhs+(isSol?", and "+lhs+" = "+c+", so "+cand+" is a solution." : ", and "+lhs+" is not "+c+", so "+cand+" is not a solution.");
   var wrongArith=(a*cand-b);
   var distr=[
-    {t:cand+" substituted: "+a+"("+cand+") + "+b+" = "+wrongArith+(isSol?", and that equals "+c+", so "+cand+" is a solution." : ", so "+cand+" is a solution."),fb:"That arithmetic subtracts "+b+" instead of adding it. Redo the substitution carefully."},
-    {t:cand+" substituted: "+a+"("+cand+") + "+b+" = "+lhs+(isSol?", so "+cand+" is not a solution." : ", and "+lhs+" = "+c+", so "+cand+" is a solution."),fb:"The substitution value "+lhs+" is right, but the conclusion is backwards: compare "+lhs+" with the right side "+c+"."},
-    {t:cand+" substituted: ("+a+" + "+b+")("+cand+") = "+((a+b)*cand)+(isSol?", so "+cand+" is a solution." : ", so "+cand+" is not a solution."),fb:"That adds the coefficient and the constant before multiplying. Multiply "+a+" by "+cand+" first, then add "+b+"."}
+    {t:cand+" substituted: "+a+"("+cand+") + "+b+" = "+wrongArith+(isSol?", and that equals "+c+", so "+cand+" is a solution." : ", and that equals "+c+" as well, so "+cand+" is a solution."),fb:"That arithmetic subtracts "+b+" instead of adding it. Redo the substitution carefully."},
+    {t:cand+" substituted: "+a+"("+cand+") + "+b+" = "+lhs+(isSol?", so "+cand+" is not a solution." : ", and "+lhs+" = "+c+" exactly, so "+cand+" is a solution."),fb:"The substitution value "+lhs+" is right, but the conclusion is backwards: compare "+lhs+" with the right side "+c+"."},
+    {t:cand+" substituted: ("+a+" + "+b+")("+cand+") = "+((a+b)*cand)+(isSol?", so "+cand+" is a solution." : ", so "+cand+" is not a solution, by that check."),fb:"That adds the coefficient and the constant before multiplying. Multiply "+a+" by "+cand+" first, then add "+b+"."}
   ];
   var prompt="Which statement correctly verifies whether \\("+v+" = "+cand+"\\) is a solution of \\("+a+v+" + "+b+" = "+c+"\\)?";
   var sol="Substitute "+cand+" for "+v+" and compare the two sides.\\[ \\begin{aligned} "+a+v+" + "+b+" &= "+a+"("+cand+") + "+b+" \\\\ &= "+lhs+" \\end{aligned} \\] The right side is "+c+", so <b>"+cand+" is "+(isSol?"":"not ")+"a solution</b>.";
@@ -3594,8 +3627,8 @@ E("u6-verify-one-step", 6, ["8.10","8.11"], 2, "var", varset([
   function(){
     return mcq("Which statement correctly verifies whether \\(x = 7\\) is a solution of \\(x + 4 = 11\\)?",
       {t:"7 substituted: 7 + 4 = 11, and 11 = 11, so 7 is a solution.",fb:"Yes: the substitution gives the right side exactly, so the value is a solution."},
-      [{t:"7 substituted: 7 + 4 = 10, so 7 is not a solution.",fb:"The arithmetic is off: 7 + 4 = 11, not 10."},
-       {t:"7 substituted: 7 - 4 = 3, so 7 is not a solution.",fb:"That subtracts 4. The equation adds 4 to the variable, so the check adds too."},
+      [{t:"7 substituted: 7 + 4 = 10, and 10 is not 11, so 7 is not a solution.",fb:"The arithmetic is off: 7 + 4 = 11, not 10."},
+       {t:"7 substituted: 7 - 4 = 3, and 3 is not 11, so 7 is not a solution.",fb:"That subtracts 4. The equation adds 4 to the variable, so the check adds too."},
        {t:"7 substituted: 7 + 4 = 11, so 7 is not a solution.",fb:"The substitution is right but the conclusion is backwards: the sides match, so 7 is a solution."}],
       "Substitute 7 for x and compare the sides.\\[ \\begin{aligned} x + 4 &= 7 + 4 \\\\ &= 11 \\end{aligned} \\] The sides match, so <b>7 is a solution</b>.",
       {mode:"verify-one-1"});
@@ -3603,26 +3636,26 @@ E("u6-verify-one-step", 6, ["8.10","8.11"], 2, "var", varset([
   function(){
     return mcq("Which statement correctly verifies whether \\(x = 10\\) is a solution of \\(x - 3 = 8\\)?",
       {t:"10 substituted: 10 - 3 = 7, and 7 is not 8, so 10 is not a solution.",fb:"Yes: the substitution gives 7, which does not match the right side 8."},
-      [{t:"10 substituted: 10 - 3 = 8, so 10 is a solution.",fb:"The arithmetic is off: 10 - 3 = 7, not 8."},
-       {t:"10 substituted: 10 + 3 = 13, so 10 is not a solution.",fb:"That adds 3. The equation subtracts 3 from the variable, so the check subtracts too."},
-       {t:"10 substituted: 10 - 3 = 7, so 10 is a solution.",fb:"The substitution is right but the conclusion is backwards: 7 does not equal 8."}],
+      [{t:"10 substituted: 10 - 3 = 8, and 8 = 8 as required, so 10 is a solution.",fb:"The arithmetic is off: 10 - 3 = 7, not 8."},
+       {t:"10 substituted: 10 + 3 = 13, and 13 is not 8, so 10 is not a solution.",fb:"That adds 3. The equation subtracts 3 from the variable, so the check subtracts too."},
+       {t:"10 substituted: 10 - 3 = 7, and 7 is not 8, so 10 is a solution.",fb:"The substitution is right but the conclusion is backwards: 7 does not equal 8."}],
       "Substitute 10 for x and compare the sides.\\[ \\begin{aligned} x - 3 &= 10 - 3 \\\\ &= 7 \\end{aligned} \\] The right side is 8, so <b>10 is not a solution</b>.",
       {mode:"verify-one-2"});
   },
   function(){
     return mcq("Which statement correctly verifies whether \\(x = 8\\) is a solution of \\(x + 6 = 15\\)?",
       {t:"8 substituted: 8 + 6 = 14, and 14 is not 15, so 8 is not a solution.",fb:"Yes: the substitution gives 14, which does not match the right side 15."},
-      [{t:"8 substituted: 8 + 6 = 15, so 8 is a solution.",fb:"The arithmetic is off: 8 + 6 = 14, not 15."},
-       {t:"8 substituted: 8 - 6 = 2, so 8 is not a solution.",fb:"That subtracts 6. The equation adds 6 to the variable, so the check adds too."},
-       {t:"8 substituted: 8 + 6 = 14, so 8 is a solution.",fb:"The substitution is right but the conclusion is backwards: 14 does not equal 15."}],
+      [{t:"8 substituted: 8 + 6 = 15, and 15 = 15 as required, so 8 is a solution.",fb:"The arithmetic is off: 8 + 6 = 14, not 15."},
+       {t:"8 substituted: 8 - 6 = 2, and 2 is not 15, so 8 is not a solution.",fb:"That subtracts 6. The equation adds 6 to the variable, so the check adds too."},
+       {t:"8 substituted: 8 + 6 = 14, and 14 is not 15, so 8 is a solution.",fb:"The substitution is right but the conclusion is backwards: 14 does not equal 15."}],
       "Substitute 8 for x and compare the sides.\\[ \\begin{aligned} x + 6 &= 8 + 6 \\\\ &= 14 \\end{aligned} \\] The right side is 15, so <b>8 is not a solution</b>.",
       {mode:"verify-one-3"});
   },
   function(){
     return mcq("Which statement correctly verifies whether \\(x = 7\\) is a solution of \\(x - 5 = 2\\)?",
       {t:"7 substituted: 7 - 5 = 2, and 2 = 2, so 7 is a solution.",fb:"Yes: the substitution gives the right side exactly, so the value is a solution."},
-      [{t:"7 substituted: 7 - 5 = 3, so 7 is not a solution.",fb:"The arithmetic is off: 7 - 5 = 2, not 3."},
-       {t:"7 substituted: 7 + 5 = 12, so 7 is not a solution.",fb:"That adds 5. The equation subtracts 5 from the variable, so the check subtracts too."},
+      [{t:"7 substituted: 7 - 5 = 3, and 3 is not 2, so 7 is not a solution.",fb:"The arithmetic is off: 7 - 5 = 2, not 3."},
+       {t:"7 substituted: 7 + 5 = 12, and 12 is not 2, so 7 is not a solution.",fb:"That adds 5. The equation subtracts 5 from the variable, so the check subtracts too."},
        {t:"7 substituted: 7 - 5 = 2, so 7 is not a solution.",fb:"The substitution is right but the conclusion is backwards: the sides match, so 7 is a solution."}],
       "Substitute 7 for x and compare the sides.\\[ \\begin{aligned} x - 5 &= 7 - 5 \\\\ &= 2 \\end{aligned} \\] The sides match, so <b>7 is a solution</b>.",
       {mode:"verify-one-4"});
@@ -3630,9 +3663,9 @@ E("u6-verify-one-step", 6, ["8.10","8.11"], 2, "var", varset([
   function(){
     return mcq("Which statement correctly verifies whether \\(x = 12\\) is a solution of \\(x + 9 = 20\\)?",
       {t:"12 substituted: 12 + 9 = 21, and 21 is not 20, so 12 is not a solution.",fb:"Yes: the substitution gives 21, which does not match the right side 20."},
-      [{t:"12 substituted: 12 + 9 = 20, so 12 is a solution.",fb:"The arithmetic is off: 12 + 9 = 21, not 20."},
-       {t:"12 substituted: 12 - 9 = 3, so 12 is not a solution.",fb:"That subtracts 9. The equation adds 9 to the variable, so the check adds too."},
-       {t:"12 substituted: 12 + 9 = 21, so 12 is a solution.",fb:"The substitution is right but the conclusion is backwards: 21 does not equal 20."}],
+      [{t:"12 substituted: 12 + 9 = 20, and 20 = 20 as required, so 12 is a solution.",fb:"The arithmetic is off: 12 + 9 = 21, not 20."},
+       {t:"12 substituted: 12 - 9 = 3, and 3 is not 20, so 12 is not a solution.",fb:"That subtracts 9. The equation adds 9 to the variable, so the check adds too."},
+       {t:"12 substituted: 12 + 9 = 21, and 21 is not 20, so 12 is a solution.",fb:"The substitution is right but the conclusion is backwards: 21 does not equal 20."}],
       "Substitute 12 for x and compare the sides.\\[ \\begin{aligned} x + 9 &= 12 + 9 \\\\ &= 21 \\end{aligned} \\] The right side is 20, so <b>12 is not a solution</b>.",
       {mode:"verify-one-5"});
   }
@@ -3739,7 +3772,7 @@ E("u6-verify-error", 6, ["8.16","8.10"], 3, "var", varset([
     return mcq("Ana solves \\(4x - 3 = 29\\) by writing \\(4x = 26\\), then \\(x = 6.5\\). What is the correct solution?",
       {t:"8",fb:"Yes: adding 3 to both sides gives 4x = 32, and dividing by 4 gives 8."},
       [{t:"6.5",fb:"That is Ana's answer. She subtracted 3 from the right side instead of adding it back."},
-       {t:"32",fb:"That is the value of 4x after the correct first step, not the value of x."},
+       {t:"32.0",fb:"That is the value of 4x after the correct first step, not the value of x."},
        {t:"7",fb:"Check it: 4(7) - 3 = 25, not 29."}],
       "Ana's error is in the first step: the subtracted 3 must be added back on both sides.\\[ \\begin{aligned} 4x - 3 &= 29 \\\\ 4x &= 32 \\\\ x &= 8 \\end{aligned} \\] The correct solution is <b>8</b>. Verify: 4(8) - 3 = 29.",
       {mode:"verify-error-3"});
@@ -3854,6 +3887,7 @@ E("u7-mean-basic",7,["11.6"],1,"gen",function(){
   var cand=u7numOpts(m,[fmt(m+1),fmt(m-1),fmt(u7median(vals)),fmt(m+2),fmt(Math.max.apply(null,vals))]).map(function(v){return String(v);});
   var seen={};var ds=[];cand.forEach(function(v){if(v!==ms&&!seen[v]){seen[v]=1;ds.push({t:v,fb:"That value does not equal the total divided by "+n+". Add all the values first, then divide by how many there are."});}});
   while(ds.length<3){var v=fmt(m+ds.length+2);if(v!==ms&&!seen[v]){seen[v]=1;ds.push({t:v,fb:"Add all the values first, then divide by "+n+"."});}}
+  ds=precPair(ms,ds);
   var q=mcq("A student's "+ctx+" are: "+vals.join(", ")+". What is the mean?",
     {t:ms,fb:"Yes: the total is "+fmt(u7mean(vals)*n)+" and "+fmt(u7mean(vals)*n)+" divided by "+n+" is "+ms+"."},ds.slice(0,3),
     "Add the values, then divide by how many there are. \\[ \\begin{aligned} \\text{total} &= "+vals.join(" + ")+" = "+fmt(m*n)+" \\\\ \\text{mean} &= "+fmt(m*n)+" \\div "+n+" = "+ms+" \\end{aligned} \\] The mean is <b>"+ms+"</b>.",
@@ -3877,6 +3911,7 @@ E("u7-median-mode",7,["11.6"],1,"gen",function(){
   var cand2=u7numOpts(med,[fmt(u7mean(vals)),srt[0],srt[srt.length-1],med+1]).map(function(v){return String(v);});
   var ds2=cand2.filter(function(v){return v!==fmt(med);}).slice(0,3).map(function(v){return {t:v,fb:"Order the values first. The median is the middle value of the ordered list."};});
   while(ds2.length<3){var w=fmt(med+ds2.length+2);ds2.push({t:w,fb:"Order the values first, then take the middle one."});}
+  ds2=precPair(fmt(med),ds2);
   return mcq("Data set: "+vals.join(", ")+". What is the median?",{t:fmt(med),fb:"Yes: ordered, the list is "+srt.join(", ")+", and the middle value is "+fmt(med)+"."},ds2,
     "Order the values: "+srt.join(", ")+". With "+n+" values, the middle position holds <b>"+fmt(med)+"</b>.",{mode:"median"});
 },["Order the values first for the median; count frequencies for the mode.","Start by rewriting the data set in increasing order."]);
@@ -4121,7 +4156,7 @@ E("u7-exp-vs-theor",7,["12.6"],2,"gen",function(){
     var other=larger.indexOf("Experimental")===0?"Theoretical probability is larger":"Experimental probability is larger";
     return mcq("In "+trials+" trials of "+theo[0]+", the outcome occurred "+obs+" times. Which statement compares the probabilities correctly?",
       {t:larger,fb:"Yes: the experimental value is "+u7fracStr(obs,trials)+" and the theoretical value is "+u7fracStr(theo[1],theo[2])+", and comparing them gives this result."},
-      [{t:other,fb:"Compare the two values directly: experimental is "+obs+"/"+trials+", theoretical is "+theo[1]+"/"+theo[2]+"."},{t:"The two probabilities are equal",fb:"The counts do not match the theoretical share exactly, so the probabilities differ."},{t:"Experimental probability cannot be compared with theoretical probability",fb:"Both are fractions between 0 and 1, so they can be compared directly."}],
+      [{t:other,fb:"Compare the two values directly: experimental is "+obs+"/"+trials+", theoretical is "+theo[1]+"/"+theo[2]+"."},{t:"The two probabilities are exactly equal",fb:"The counts do not match the theoretical share exactly, so the probabilities differ."},{t:"The two cannot be compared directly",fb:"Both are fractions between 0 and 1, so they can be compared directly."}],
       "Experimental probability: \\("+FR(obs,trials)+"\\). Theoretical probability: \\("+FR(theo[1],theo[2])+"\\). Comparing the two, <b>"+larger.toLowerCase()+"</b>.",{mode:"compare"});
   }
   var cs=u7fracStr(obs,trials);
@@ -4170,7 +4205,7 @@ E("u7-outlier-effect",7,["11.11","11.8"],2,"gen",function(){
 E("u7-outlier-judge",7,["11.10","11.12","11.13"],3,"var",varset([
   function(){return mcq("A runner's race times in seconds are mostly near 62, but one time is 95 because the runner stopped to retie a shoe. A report of the runner's typical time should:",
     {t:"Leave out the 95, because it reflects the stop, not the runner's speed",fb:"Yes: the outlier came from an interruption, so it misrepresents typical performance."},
-    [{t:"Keep the 95, because every recorded value must always be used",fb:"Values caused by a recording problem or interruption may fairly be excluded with a stated reason."},{t:"Keep the 95 and report only the mean",fb:"The mean with the 95 included would overstate the typical time the most."},{t:"Replace the 95 with the fastest time",fb:"Changing a recorded value to a different number invents data."}],
+    [{t:"Keep the 95, because every recorded value must always be used",fb:"Values caused by a recording problem or interruption may fairly be excluded with a stated reason."},{t:"Keep the 95 and report only the mean of all the runner's recorded race times",fb:"The mean with the 95 included would overstate the typical time the most."},{t:"Replace the 95 with the fastest time the runner has ever recorded",fb:"Changing a recorded value to a different number invents data."}],
     "The 95 second time was caused by a stop, not by running speed, so it should be excluded when reporting typical performance. The answer is <b>Leave out the 95</b>.",{mode:"race"});},
   function(){return mcq("A class collects the heights of all 20 students. One student is much taller than the rest, but the measurement is correct. For a report on the class's heights, the tall value should:",
     {t:"Be kept, because it is a genuine member of the class",fb:"Yes: a correct measurement belonging to the group stays in the report, and the median can limit its pull."},
@@ -4182,11 +4217,11 @@ E("u7-outlier-judge",7,["11.10","11.12","11.13"],3,"var",varset([
     "The 480 mm reading is a sensor error, so it is excluded from the report. The answer is <b>Be left out, because it is a measurement error</b>.",{mode:"rain"});},
   function(){return mcq("A fundraiser totals donations from 12 people. Eleven gave $10 to $25, and one gave $500. The organizer reports the typical donation. The best approach is:",
     {t:"Report the median, and mention the $500 gift separately",fb:"Yes: the median reflects the typical gift while the large gift is still acknowledged."},
-    [{t:"Report the mean, since it gives the typical donation",fb:"The mean here is near $63, which no typical donor gave; the $500 pulls it up."},{t:"Leave the $500 out of all records",fb:"The gift is real money and belongs in totals, even if the median better shows the typical gift."},{t:"Report the mode of the donations",fb:"The donations differ, so there is likely no mode to report."}],
+    [{t:"Report the mean, since it gives the typical donation",fb:"The mean here is near $63, which no typical donor gave; the $500 pulls it up."},{t:"Leave the $500 out of all records kept by the organizer",fb:"The gift is real money and belongs in totals, even if the median better shows the typical gift."},{t:"Report the mode of the donations given by the twelve people",fb:"The donations differ, so there is likely no mode to report."}],
     "The $500 gift is genuine, so it stays in the records, but the median better represents a typical donation. The answer is <b>Report the median, and mention the $500 gift separately</b>.",{mode:"donation"});},
   function(){return mcq("Which situation is one where an outlier should be kept in the data when reporting results?",
     {t:"A basketball player scores 41 points in one game while usually scoring near 15",fb:"Yes: the big game really happened and is part of the player's record."},
-    [{t:"A scale misreads a mass as 900 kg for a 9 kg object",fb:"That value is an instrument error, not a real result."},{t:"A time is typed as 450 seconds instead of 45.0 seconds",fb:"That value is a typing error and should be corrected or excluded."},{t:"A temperature sensor left in direct sun reads far above the air temperature",fb:"That reading does not measure what the study intends, so it should be excluded."}],
+    [{t:"A scale misreads a mass as 900 kg for a 9 kg object in the whole experiment",fb:"That value is an instrument error, not a real result."},{t:"A time is typed as 450 seconds instead of 45.0 seconds in the results table",fb:"That value is a typing error and should be corrected or excluded."},{t:"A temperature sensor left in direct sun reads far above the air temperature",fb:"That reading does not measure what the study intends, so it should be excluded."}],
     "A genuine standout performance belongs in the data. Errors from instruments or typing do not. The answer is <b>A basketball player scores 41 points in one game</b>.",{mode:"keep"});}
 ]),["Decide first whether the outlier is genuine data or an error, then choose the handling.","Start by asking what caused the unusual value."]);
 
@@ -4234,19 +4269,19 @@ E("u7-zero-one",7,["12.2","12.3"],3,"var",varset([
     "No green marbles are in the bag, so drawing one is impossible. The answer is <b>Drawing a green marble</b>.",{mode:"zero"});},
   function(){return mcq("Which event has probability 1?",
     {t:"Rolling a number less than 7 on a six-sided die",fb:"Yes: every face of the die is less than 7, so this is certain."},
-    [{t:"Rolling a 6 on a six-sided die",fb:"Only one of six faces is a 6, so the probability is less than 1."},{t:"Flipping heads on a coin",fb:"Tails is also possible, so the probability is less than 1."},{t:"Drawing a red card from a full deck",fb:"Black cards are also in the deck, so this is not certain."}],
+    [{t:"Rolling a 6 on a six-sided die in one roll",fb:"Only one of six faces is a 6, so the probability is less than 1."},{t:"Flipping heads on a coin on the first flip",fb:"Tails is also possible, so the probability is less than 1."},{t:"Drawing a red card from a full deck of cards",fb:"Black cards are also in the deck, so this is not certain."}],
     "All six faces are less than 7, so the event always happens. The answer is <b>Rolling a number less than 7</b>.",{mode:"one"});},
   function(){return mcq("Which pair of events is independent?",
     {t:"Tossing a coin and rolling a die",fb:"Yes: the coin result cannot change the die result, and the die cannot change the coin."},
-    [{t:"Drawing two cards from a deck without putting the first back",fb:"The first draw changes what remains, so the second draw depends on it."},{t:"Choosing a student, then choosing that student's lab partner from the same group",fb:"The first choice restricts who can be picked second, so the events are linked."},{t:"Picking a marble from a bag and then picking another from what is left",fb:"Leaving the first marble out changes the bag for the second pick."}],
+    [{t:"Drawing two cards without replacement",fb:"The first draw changes what remains, so the second draw depends on it."},{t:"Choosing a student and their partner",fb:"The first choice restricts who can be picked second, so the events are linked."},{t:"Picking two marbles without replacement",fb:"Leaving the first marble out changes the bag for the second pick."}],
     "A coin and a die do not affect each other, so the events are independent. The answer is <b>Tossing a coin and rolling a die</b>.",{mode:"indep"});},
   function(){return mcq("A spinner has 4 equal sections, all coloured yellow. What is the probability of landing on yellow, and what kind of event is it?",
     {t:"Probability 1, a certain event",fb:"Yes: every section is yellow, so the spinner always lands on yellow."},
-    [{t:"Probability 0, an impossible event",fb:"Landing on yellow always happens here, the opposite of impossible."},{t:"Probability 1/4, because there are 4 sections",fb:"All 4 sections are yellow, so 4 of 4 sections match, giving probability 1."},{t:"Probability 4, because there are 4 yellow sections",fb:"Probabilities never exceed 1."}],
+    [{t:"Probability 0, an impossible event",fb:"Landing on yellow always happens here, the opposite of impossible."},{t:"Probability 1/4, from the 4 sections",fb:"All 4 sections are yellow, so 4 of 4 sections match, giving probability 1."},{t:"Probability 4, because 4 are yellow",fb:"Probabilities never exceed 1."}],
     "All 4 of the 4 sections are yellow: \\(P = "+FR(4,4)+" = 1\\). The answer is <b>Probability 1, a certain event</b>.",{mode:"certain"});},
   function(){return mcq("Which pair of events is independent?",
     {t:"Spinning a spinner and tossing a coin",fb:"Yes: neither result can influence the other."},
-    [{t:"Drawing a name from a hat and then drawing a second name from the same hat",fb:"The first name is gone, which changes the second draw."},{t:"Rolling a die and then scoring double if the roll is a 6",fb:"The scoring depends directly on the die result."},{t:"Choosing a captain and then choosing a co-captain from the remaining players",fb:"The first choice removes a player, changing the second choice."}],
+    [{t:"Drawing two names without replacement",fb:"The first name is gone, which changes the second draw."},{t:"Rolling a die, then scoring double on a 6",fb:"The scoring depends directly on the die result."},{t:"Choosing a captain, then a co-captain",fb:"The first choice removes a player, changing the second choice."}],
     "The spinner and the coin do not affect each other, so the events are independent. The answer is <b>Spinning a spinner and tossing a coin</b>.",{mode:"indep2"});}
 ]),["Probability 0 means impossible and probability 1 means certain; independent events cannot affect each other.","Start by asking whether the event can happen at all, always happens, or depends on the other event."]);
 
@@ -4353,15 +4388,15 @@ E("u8-env-examples",8,["10.2","10.3"],1,"var",varset([
     "A window frame corner meets at 90 degrees, which is perpendicular. The answer is <b>The corner edges of a window frame</b>.",{mode:"window"});},
   function(){return mcq("A student looks around a classroom for parallel segments. Which find is correct?",
     {t:"The top and bottom edges of the whiteboard",fb:"Yes: opposite edges of the board run in the same direction and never meet."},
-    [{t:"The edge of a desk and the floor line it touches",fb:"Those meet at the desk leg area at an angle rather than running side by side."},{t:"The two sides of an open laptop screen corner",fb:"Sides meeting at a corner of the screen form an angle, not a parallel pair."},{t:"The stripes meeting at the corner of a flag design",fb:"Stripes that meet at a corner cross or touch, so they are not parallel segments."}],
+    [{t:"The edge of a desk and the floor line it touches",fb:"Those meet at the desk leg area at an angle rather than running side by side."},{t:"The two sides of an open laptop screen corner",fb:"Sides meeting at a corner of the screen form an angle, not a parallel pair."},{t:"The stripes at the corner of a flag",fb:"Stripes that meet at a corner cross or touch, so they are not parallel segments."}],
     "Opposite edges of the whiteboard are parallel. The answer is <b>The top and bottom edges of the whiteboard</b>.",{mode:"board"});},
   function(){return mcq("Which of these is an example of perpendicular segments in the environment?",
     {t:"A flagpole and the ground line at its base",fb:"Yes: a vertical pole meets level ground at a right angle."},
-    [{t:"The rungs of a ladder",fb:"Ladder rungs run side by side: they are parallel to each other."},{t:"The opposite sides of a hockey rink",fb:"Opposite sides of the rink run in the same direction: parallel."},{t:"The two long edges of a bookshelf board",fb:"Long edges of one board run side by side: parallel."}],
+    [{t:"The rungs of a ladder, spaced one above the other",fb:"Ladder rungs run side by side: they are parallel to each other."},{t:"The opposite sides of a hockey rink",fb:"Opposite sides of the rink run in the same direction: parallel."},{t:"The two long edges of a bookshelf board",fb:"Long edges of one board run side by side: parallel."}],
     "The pole is vertical and the ground is level, meeting at 90 degrees. The answer is <b>A flagpole and the ground line at its base</b>.",{mode:"pole"});},
   function(){return mcq("Which pair of segments is parallel?",
     {t:"The top edge and the bottom edge of a door",fb:"Yes: the top and bottom edges of a door run in the same direction and never meet."},
-    [{t:"The two edges that meet at the corner of a page",fb:"Edges meeting at a corner form an angle (90 degrees on a page), not a parallel pair."},{t:"The vertical and horizontal strokes of the letter L",fb:"Those strokes meet at a right angle: perpendicular."},{t:"A shelf edge and the wall edge it meets at the room corner",fb:"Those edges meet at the corner, so they cannot be parallel."}],
+    [{t:"The two edges that meet at the corner of a page",fb:"Edges meeting at a corner form an angle (90 degrees on a page), not a parallel pair."},{t:"The vertical and horizontal strokes of the letter L",fb:"Those strokes meet at a right angle: perpendicular."},{t:"A shelf edge and the wall edge it meets",fb:"Those edges meet at the corner, so they cannot be parallel."}],
     "The top and bottom edges of a door are parallel. The answer is <b>The top edge and the bottom edge of a door</b>.",{mode:"door"});}
 ]),["Parallel segments stay the same distance apart; perpendicular segments meet at 90 degrees.","Start by asking whether the two segments meet, and at what angle."]);
 
@@ -4384,7 +4419,7 @@ E("u8-bisector-env",8,["10.4","10.5"],2,"var",varset([
     "A perpendicular bisector crosses at the midpoint and at 90 degrees. The answer is <b>A line that cuts the segment into two equal parts at 90 degrees</b>.",{mode:"defpb"});},
   function(){return mcq("A gardener wants a path that is the perpendicular bisector of the front edge of a garden plot. Which path fits?",
     {t:"A path crossing the edge at its exact middle, forming a right angle with it",fb:"Yes: crossing at the midpoint at 90 degrees is exactly a perpendicular bisector."},
-    [{t:"A path crossing the edge near one end at a right angle",fb:"A right angle alone is not enough; the crossing must be at the midpoint."},{t:"A path crossing the edge at its middle at a slanted angle",fb:"The middle alone is not enough; the crossing must also be at 90 degrees."},{t:"A path running along the edge itself",fb:"A path on the edge does not cross or bisect it."}],
+    [{t:"A path crossing the edge near one end at a right angle with the edge of the garden plot",fb:"A right angle alone is not enough; the crossing must be at the midpoint."},{t:"A path crossing the edge at its middle at a slanted angle at the crossing point",fb:"The middle alone is not enough; the crossing must also be at 90 degrees."},{t:"A path running along the edge itself from one end of the plot to the other",fb:"A path on the edge does not cross or bisect it."}],
     "The path must cross at the midpoint and at 90 degrees. The answer is <b>A path crossing the edge at its exact middle, forming a right angle with it</b>.",{mode:"garden"});},
   function(){return mcq("What is an angle bisector?",
     {t:"A ray that splits an angle into two equal angles",fb:"Yes: the two resulting angles have the same measure."},
@@ -4392,7 +4427,7 @@ E("u8-bisector-env",8,["10.4","10.5"],2,"var",varset([
     "An angle bisector splits the angle into two equal angles. The answer is <b>A ray that splits an angle into two equal angles</b>.",{mode:"defab"});},
   function(){return mcq("Which action creates an angle bisector in an everyday task?",
     {t:"Folding a paper corner so the two edges of the corner line up exactly",fb:"Yes: the fold crease splits the corner angle into two equal angles."},
-    [{t:"Cutting a paper corner off with one straight cut",fb:"Cutting off the corner removes part of the angle instead of splitting it into equal halves."},{t:"Drawing any line from the corner across the paper",fb:"An arbitrary line need not split the angle equally."},{t:"Measuring the corner angle with a protractor",fb:"Measuring reads the angle; it does not split it."}],
+    [{t:"Cutting a paper corner off with one straight cut across the corner",fb:"Cutting off the corner removes part of the angle instead of splitting it into equal halves."},{t:"Drawing any line from the corner across the paper to the far side",fb:"An arbitrary line need not split the angle equally."},{t:"Measuring the corner angle with a protractor placed on the corner of the paper",fb:"Measuring reads the angle; it does not split it."}],
     "Folding so the edges match makes the crease split the angle equally. The answer is <b>Folding a paper corner so the two edges of the corner line up exactly</b>.",{mode:"foldab"});},
   function(){return mcq("Two lamp posts stand at the ends of a straight path. A bench sits on the perpendicular bisector of the path segment. What is true about the bench?",
     {t:"It is the same distance from each lamp post",fb:"Yes: every point on a perpendicular bisector is equidistant from the segment's endpoints."},
@@ -4400,7 +4435,7 @@ E("u8-bisector-env",8,["10.4","10.5"],2,"var",varset([
     "Every point on a perpendicular bisector is the same distance from both endpoints. The answer is <b>It is the same distance from each lamp post</b>.",{mode:"bench"});},
   function(){return mcq("Folding a paper strip so one end lands exactly on the other end creates a crease. The crease is:",
     {t:"The perpendicular bisector of the strip's length",fb:"Yes: matching the ends makes the crease cross at the midpoint, and a fold crease meets the length at 90 degrees."},
-    [{t:"An angle bisector of the strip's corner",fb:"The fold matches the two ends of the length, so it bisects the length, not a corner angle."},{t:"A line parallel to the strip's length",fb:"The crease crosses the length rather than running alongside it."},{t:"The midpoint itself",fb:"The crease is a line through the midpoint, not just the point."}],
+    [{t:"An angle bisector of the strip's corner where the fold starts",fb:"The fold matches the two ends of the length, so it bisects the length, not a corner angle."},{t:"A line parallel to the strip's length along the whole strip",fb:"The crease crosses the length rather than running alongside it."},{t:"The midpoint itself, halfway along the strip",fb:"The crease is a line through the midpoint, not just the point."}],
     "Matching the ends puts the crease through the midpoint at a right angle. The answer is <b>The perpendicular bisector of the strip's length</b>.",{mode:"foldpb"});}
 ]),["A bisector splits something into two equal parts; perpendicular adds a 90 degree crossing.","Start by checking both conditions: equal parts, and the right angle for a perpendicular bisector."]);
 
@@ -4429,19 +4464,19 @@ E("u8-bisector-reason",8,["10.15","10.16"],2,"gen",function(){
 E("u8-draw-reason",8,["10.13","10.14"],2,"var",varset([
   function(){return mcq("A student slides a set square along a ruler to draw a second line through a point. Why is the new line parallel to the first line?",
     {t:"The set square keeps the same angle with the ruler, so the new line has the same direction as the first",fb:"Yes: both lines make equal corresponding angles with the ruler, which makes them parallel."},
-    [{t:"The new line is the same length as the first line",fb:"Equal lengths do not make lines parallel; direction does."},{t:"The ruler is longer than both lines",fb:"The ruler's length plays no role in the direction of the lines."},{t:"The point lies on the first line",fb:"In this construction the point is off the first line; the equal angles are what make the lines parallel."}],
+    [{t:"The new line is the same length as the first line, and equal lengths are what make two lines parallel in a drawing",fb:"Equal lengths do not make lines parallel; direction does."},{t:"The ruler is longer than both lines, so any line drawn along it points in the same direction as the first",fb:"The ruler's length plays no role in the direction of the lines."},{t:"The point lies on the first line, so the second line through it has to follow the first line exactly",fb:"In this construction the point is off the first line; the equal angles are what make the lines parallel."}],
     "Sliding the set square preserves the angle, so both lines share the same direction. The answer is <b>The set square keeps the same angle with the ruler</b>.",{mode:"slide"});},
   function(){return mcq("To draw a line perpendicular to a given line through a point on it, a student uses a set square. Why does this work?",
     {t:"The corner of a set square is exactly 90 degrees, so the drawn edge meets the line at 90 degrees",fb:"Yes: the set square's right angle is transferred to the drawing."},
-    [{t:"The set square is a triangle, and triangles contain perpendicular lines",fb:"Only the right angle corner matters here, not the triangular shape in general."},{t:"The point is on the line, which forces a right angle",fb:"A point on a line does not by itself create a right angle; the set square does."},{t:"The ruler underneath makes every drawn line perpendicular",fb:"A ruler guides straightness, not the angle."}],
+    [{t:"The set square is a triangle, and triangles contain perpendicular lines in this drawing",fb:"Only the right angle corner matters here, not the triangular shape in general."},{t:"The point is on the line, which forces a right angle wherever a new line is drawn through that point",fb:"A point on a line does not by itself create a right angle; the set square does."},{t:"The ruler underneath makes every drawn line perpendicular to the line being drawn on the page",fb:"A ruler guides straightness, not the angle."}],
     "The set square's corner is a true right angle, so the drawn line is perpendicular. The answer is <b>The corner of a set square is exactly 90 degrees</b>.",{mode:"setsq"});},
   function(){return mcq("A student draws a line and claims it is parallel to a given line. Which check confirms the claim?",
     {t:"Measure the distance between the lines at two different places; the distances are equal",fb:"Yes: parallel lines stay the same distance apart everywhere."},
-    [{t:"Check that the two lines have the same length",fb:"Segments can share a length without being parallel."},{t:"Extend one line and see whether it looks straight",fb:"Straightness of one line says nothing about its direction relative to the other."},{t:"Measure one angle where a ruler crosses a line",fb:"One angle alone does not compare the two lines' directions."}],
+    [{t:"Check that the two lines have the same length from one end of each line to the other end",fb:"Segments can share a length without being parallel."},{t:"Extend one line and see whether it looks straight along its whole length on the page",fb:"Straightness of one line says nothing about its direction relative to the other."},{t:"Measure one angle where a ruler crosses a line, and check that the angle looks right",fb:"One angle alone does not compare the two lines' directions."}],
     "Equal distances at two places confirm the lines stay the same distance apart: they are parallel. The answer is <b>Measure the distance between the lines at two different places; the distances are equal</b>.",{mode:"checkpar"});},
   function(){return mcq("Which sequence draws a line parallel to a given line through a point off the line?",
     {t:"Place a set square edge on the line, rest a ruler against the set square, slide the set square along the ruler to the point, and draw",fb:"Yes: the ruler fixes the direction while the set square slides to the point."},
-    [{t:"Draw any line through the point and measure its length to match the given line",fb:"Matching a length does not control direction, so the lines need not be parallel."},{t:"Fold the paper so the point lands anywhere on the line, then draw the crease",fb:"That crease depends on where the point lands and is a perpendicular construction, not a parallel one."},{t:"Draw a circle around the point and join two points on the circle",fb:"A circle construction like that does not fix the direction to match the given line."}],
+    [{t:"Draw any line through the point and measure its length to match the given line, checking the length at both ends of the line drawn",fb:"Matching a length does not control direction, so the lines need not be parallel."},{t:"Fold the paper so the point lands anywhere on the line, then draw the crease along the fold from one side of the paper to the other",fb:"That crease depends on where the point lands and is a perpendicular construction, not a parallel one."},{t:"Draw a circle around the point and join two points on the circle, then extend the joining line in both directions past the circle",fb:"A circle construction like that does not fix the direction to match the given line."}],
     "The sliding set square method preserves direction. The answer is <b>Place a set square edge on the line, rest a ruler against the set square, slide the set square along the ruler to the point, and draw</b>.",{mode:"seqpar"});},
   function(){return mcq("A student draws a line through a point and claims it is perpendicular to a given line. Which check confirms the claim?",
     {t:"Measure the angle where the lines meet; it is 90 degrees",fb:"Yes: perpendicular lines are defined by meeting at 90 degrees."},
@@ -4730,23 +4765,23 @@ E("u8-design-shape",8,["10.17","10.18"],3,"var",varset([
 E("u8-construct-verify",8,["10.13","10.14","10.15"],3,"var",varset([
   function(){return mcq("A student constructs the perpendicular bisector of a segment with compass arcs. Which check verifies the construction?",
     {t:"Measure from the crossing point to each endpoint; the distances are equal, and the crossing angle is 90 degrees",fb:"Yes: equal halves plus a right angle are the two defining properties."},
-    [{t:"Measure the whole segment; it matches the compass setting",fb:"The compass setting is a construction tool, not a property of the bisector."},{t:"Check that the bisector is longer than the segment",fb:"Length of the bisector line is not part of its definition."},{t:"Check that the bisector passes through one endpoint",fb:"A bisector passes through the midpoint, not through an endpoint."}],
+    [{t:"Measure the whole segment; it matches the compass setting used for the two arcs when the bisector was constructed",fb:"The compass setting is a construction tool, not a property of the bisector."},{t:"Check that the bisector is longer than the segment on both sides of the segment it crosses in the diagram",fb:"Length of the bisector line is not part of its definition."},{t:"Check that the bisector passes through one endpoint and then through the midpoint of the segment as well",fb:"A bisector passes through the midpoint, not through an endpoint."}],
     "A perpendicular bisector must halve the segment and cross at 90 degrees, and measuring confirms both. The answer is <b>Measure from the crossing point to each endpoint; the distances are equal, and the crossing angle is 90 degrees</b>.",{mode:"verifybis"});},
   function(){return mcq("In the compass method for a perpendicular bisector, arcs are drawn from both endpoints using the same compass setting. Why must the setting stay the same?",
     {t:"Equal radii make the arc crossings sit the same distance from both endpoints, which places them on the perpendicular bisector",fb:"Yes: points equidistant from both endpoints lie on the perpendicular bisector."},
-    [{t:"A wider setting would erase the segment",fb:"The setting affects the arcs' size, not the segment itself; equality of radii is the point."},{t:"The compass cannot be adjusted once opened",fb:"A compass can be adjusted; the method requires keeping it fixed for both endpoints."},{t:"Equal radii make the arcs the same colour",fb:"Colour plays no role in the geometry of the construction."}],
+    [{t:"A wider setting would erase the segment if the arcs were drawn with the compass point placed at the midpoint of the segment being bisected",fb:"The setting affects the arcs' size, not the segment itself; equality of radii is the point."},{t:"The compass cannot be adjusted once opened, so the setting chosen at the start must be used for every arc in the construction",fb:"A compass can be adjusted; the method requires keeping it fixed for both endpoints."},{t:"Equal radii make the arcs the same colour, so the crossings can be told apart from the segment in the finished drawing",fb:"Colour plays no role in the geometry of the construction."}],
     "Equal radii guarantee the crossings are equidistant from the endpoints, which defines the bisector. The answer is <b>Equal radii make the arc crossings sit the same distance from both endpoints</b>.",{mode:"arcs"});},
   function(){return mcq("A second method for the perpendicular bisector is folding paper so the two endpoints of a segment meet. Why does the crease work as the bisector?",
     {t:"The fold maps the segment onto itself with endpoints swapped, so the crease crosses at the midpoint at 90 degrees",fb:"Yes: matching endpoints forces the crease through the midpoint, and a fold crease is perpendicular to the segment."},
-    [{t:"The crease is always the longest line on the paper",fb:"Crease length is irrelevant; the endpoint matching is what creates the bisector."},{t:"Folding doubles the segment length",fb:"Folding does not change the segment; it maps it onto itself."},{t:"The crease passes through both endpoints",fb:"The crease crosses the segment at its midpoint; it does not pass through the endpoints."}],
+    [{t:"The crease is always the longest line on the paper, running from one corner of the sheet to the opposite corner of the sheet",fb:"Crease length is irrelevant; the endpoint matching is what creates the bisector."},{t:"Folding doubles the segment length, because the two halves of the paper lie on top of each other along the crease line",fb:"Folding does not change the segment; it maps it onto itself."},{t:"The crease passes through both endpoints of the segment and joins them where the paper is folded over",fb:"The crease crosses the segment at its midpoint; it does not pass through the endpoints."}],
     "Matching the endpoints makes the crease the perpendicular bisector. The answer is <b>The fold maps the segment onto itself with endpoints swapped</b>.",{mode:"fold"});},
   function(){return mcq("A student draws a line parallel to a base line by copying an angle with a compass. Why does copying the angle work?",
     {t:"Equal corresponding angles formed with a transversal guarantee the lines are parallel",fb:"Yes: when a transversal makes equal corresponding angles, the lines are parallel."},
-    [{t:"The copied angle makes the new line the same length as the base line",fb:"Angle copying controls direction, not length."},{t:"The compass draws both lines at the same time",fb:"The lines are drawn separately; the equal angles link their directions."},{t:"Any copied angle produces a perpendicular line",fb:"Copying an angle reproduces direction for parallel lines; perpendicular needs a 90 degree angle specifically."}],
+    [{t:"The copied angle makes the new line the same length as the base line drawn on the page",fb:"Angle copying controls direction, not length."},{t:"The compass draws both lines at the same time, in a single step of the construction",fb:"The lines are drawn separately; the equal angles link their directions."},{t:"Any copied angle produces a perpendicular line through the point on the base line",fb:"Copying an angle reproduces direction for parallel lines; perpendicular needs a 90 degree angle specifically."}],
     "Equal corresponding angles are the test for parallel lines, so copying the angle works. The answer is <b>Equal corresponding angles formed with a transversal guarantee the lines are parallel</b>.",{mode:"copyangle"});},
   function(){return mcq("After drawing a line claimed to be perpendicular to a given line, a student checks it with a set square and finds a small gap at the corner. What should the student conclude?",
     {t:"The line is not exactly perpendicular, because a true right angle fits the set square corner with no gap",fb:"Yes: the set square's corner is a true 90 degrees, so a gap means the drawn angle differs from 90."},
-    [{t:"The line is perpendicular, because small gaps do not matter in constructions",fb:"Verification exists to catch exactly this kind of error; the claim fails the check."},{t:"The set square is at fault, because drawn lines are always exact",fb:"The set square corner is manufactured as a right angle; the drawn line is the part under test."},{t:"The line is parallel instead",fb:"A near-right angle is neither perpendicular nor evidence of parallel."}],
+    [{t:"The line is perpendicular, because small gaps do not matter in constructions when the line is drawn by hand with a ruler",fb:"Verification exists to catch exactly this kind of error; the claim fails the check."},{t:"The set square is at fault, because drawn lines are always exact for this kind of check",fb:"The set square corner is manufactured as a right angle; the drawn line is the part under test."},{t:"The line is parallel instead of perpendicular, because it runs in the same direction",fb:"A near-right angle is neither perpendicular nor evidence of parallel."}],
     "The gap shows the angle is not exactly 90 degrees, so the line fails verification as perpendicular. The answer is <b>The line is not exactly perpendicular</b>.",{mode:"gap"});}
 ]),["Verification measures the defining property: equal halves and 90 degrees, equal angles, or equal distances.","Start by stating the property the construction must satisfy, then choose the check that measures it."]);
 
