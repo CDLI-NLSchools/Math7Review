@@ -872,7 +872,7 @@ E("u1-identify-parts", 1, ["8.5"], 1, "gen", function(){
     {mode:mode,a:a,b:b});
 }, ["Name the three parts: coefficient, constant term and variable.", "Start by finding the letter; the number attached to it and the number standing alone are the other two parts."]);
 
-E("u1-expression-or-equation", 1, ["8.6"], 2, "var", varset([
+E("u1-expression-or-equation", 1, ["8.6"], 1, "var", varset([
   function(){ return mcq("Which one is an equation?",
     {t:"5n + 3 = 18", fb:"Correct: it has an equals sign joining two expressions."},
     [{t:"5n + 3", fb:"That is an expression: there is no equals sign."},
@@ -885,6 +885,15 @@ E("u1-expression-or-equation", 1, ["8.6"], 2, "var", varset([
      {t:"An expression has variables and an equation never does in any question.", fb:"Equations often contain variables, such as 2x + 5 = 17."},
      {t:"An equation can be evaluated and an expression can only be solved in a question like this.", fb:"It is the other way around: expressions are evaluated, equations are solved."}],
     "Expressions and equations are built from the same parts. The equation adds an equals sign claiming the two sides match. The answer is <b>same parts, but only the equation has an equals sign</b>.", {}); },
+  function(){ return mcq("Which one is an expression?",
+    {t:"9 - 3m", fb:"Correct: it is a combination of numbers and a variable with no equals sign."},
+    [{t:"9 - 3m = 0", fb:"The equals sign makes that an equation."},
+     {t:"3m = 9", fb:"That is an equation: two sides joined by an equals sign."},
+     {t:"9 = 3 + 6", fb:"Even with numbers only, the equals sign makes it an equation."}],
+    "An expression has no equals sign. \\(9 - 3m\\) is the only choice without one. The answer is <b>9 - 3m</b>.", {}); }
+]), ["Look for an equals sign: it is the deciding feature.", "Start by checking each choice for an equals sign."]);
+
+E("u1-expression-or-equation-judge", 1, ["8.6"], 2, "var", varset([
   function(){ return mcq("A student says \\(4x + 7 = 19\\) is an expression. What is the best correction?",
     {t:"It is an equation, because an equals sign joins two expressions.", fb:"Correct: the equals sign makes it an equation."},
     [{t:"The student is right, because it contains a variable like this one does.", fb:"Variables appear in both expressions and equations."},
@@ -896,15 +905,8 @@ E("u1-expression-or-equation", 1, ["8.6"], 2, "var", varset([
     [{t:"Work out the value of 2x + 5 when x is 4 for the expression.", fb:"That is evaluating an expression: a value for x is already given."},
      {t:"Write 2x + 5 = 17 in words, as a sentence.", fb:"That describes the statement in words; there is no value to find that makes it true."},
      {t:"Add 3 to 2x + 5 to make a new expression.", fb:"That builds a new expression, not an equation."}],
-    "An equation asks for the value that makes both sides equal. Only the first task does that. The answer is <b>find the value of x that makes 2x + 5 = 17 true</b>.", {}); },
-  function(){ return mcq("Which one is an expression?",
-    {t:"9 - 3m", fb:"Correct: it is a combination of numbers and a variable with no equals sign."},
-    [{t:"9 - 3m = 0", fb:"The equals sign makes that an equation."},
-     {t:"3m = 9", fb:"That is an equation: two sides joined by an equals sign."},
-     {t:"9 = 3 + 6", fb:"Even with numbers only, the equals sign makes it an equation."}],
-    "An expression has no equals sign. \\(9 - 3m\\) is the only choice without one. The answer is <b>9 - 3m</b>.", {}); }
+    "An equation asks for the value that makes both sides equal. Only the first task does that. The answer is <b>find the value of x that makes 2x + 5 = 17 true</b>.", {}); }
 ]), ["Look for an equals sign: it is the deciding feature.", "Start by checking each choice for an equals sign."]);
-
 E("u1-parts-in-equation", 1, ["8.5","8.6"], 1, "gen", function(){
   var a=ri(2,9), b=ri(2,12), c=ri(20,60), v=pick(["n","x","t","m"]);
   var mode=pick(["coef","var"]);
