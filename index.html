@@ -3008,7 +3008,7 @@ E("u5-sub-unlike", 5, ["6.19","6.16"], 2, "gen", function(){
     sol,{mode:"sub-unlike",a:a,d1:d1,c:c,d2:d2});
 }, ["The parts are different sizes, so the fractions need a common denominator first.", "Start by rewriting both fractions over the least common multiple of the denominators."]);
 
-E("u5-add-mixed", 5, ["6.21","6.20"], 2, "gen", function(){
+E("u5-add-mixed", 5, ["6.21","6.20"], 1, "gen", function(){
   var d=pick([3,4,5,6,8,10,12]);var w1=ri(1,5),w2=ri(1,4);var n1=ri(1,d-1),n2=ri(1,d-1);var cc=0;
   while((u5gcd(n1,d)!==1||u5gcd(n2,d)!==1)&&cc<40){n1=ri(1,d-1);n2=ri(1,d-1);cc++;}
   if(u5gcd(n1,d)!==1||u5gcd(n2,d)!==1){d=5;n1=ri(1,4);n2=ri(1,4);}
@@ -3025,7 +3025,7 @@ E("u5-add-mixed", 5, ["6.21","6.20"], 2, "gen", function(){
     sol,{mode:"add-mixed",w1:w1,n1:n1,w2:w2,n2:n2,d:d});
 }, ["Work with the whole numbers and the fraction parts separately.", "Start by adding the whole numbers, then add the numerators of the fraction parts."]);
 
-E("u5-sub-mixed", 5, ["6.21","6.20"], 2, "gen", function(){
+E("u5-sub-mixed", 5, ["6.21","6.20"], 1, "gen", function(){
   var d=pick([3,4,5,6,8,10,12]);var w2=ri(1,3);var w1=w2+ri(1,3);var n2=ri(1,d-2);var n1=n2+ri(1,d-1-n2);var cc=0;
   while((u5gcd(n1,d)!==1||u5gcd(n2,d)!==1)&&cc<40){n2=ri(1,d-2);n1=n2+ri(1,d-1-n2);cc++;}
   if(u5gcd(n1,d)!==1||u5gcd(n2,d)!==1){d=7;n2=ri(1,5);n1=n2+ri(1,6-n2);}
@@ -3092,7 +3092,7 @@ E("u5-problem-add", 5, ["6.23","6.17"], 2, "gen", function(){
   return textq(prompt,u5accept(N,L),sol,{mode:"problem-add",a:a,d1:d1,c:c,d2:d2});
 }, ["The question asks for a total, so the two amounts are added.", "Start by finding a common denominator for the two fractions."]);
 
-E("u5-problem-sub-mixed", 5, ["6.23","6.21"], 2, "gen", function(){
+E("u5-problem-sub-mixed", 5, ["6.23","6.21"], 1, "gen", function(){
   var d=pick([3,4,5,6,8,10,12]);var w2=ri(1,3);var w1=w2+ri(1,3);var n2=ri(1,d-2);var n1=n2+ri(1,d-1-n2);var cc=0;
   while((u5gcd(n1,d)!==1||u5gcd(n2,d)!==1)&&cc<40){n2=ri(1,d-2);n1=n2+ri(1,d-1-n2);cc++;}
   if(u5gcd(n1,d)!==1||u5gcd(n2,d)!==1){d=7;n2=ri(1,5);n1=n2+ri(1,6-n2);}
