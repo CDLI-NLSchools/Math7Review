@@ -1399,7 +1399,7 @@ E("u2-error-spot", 2, ["6.25","6.27"], 3, "var", varset([
     "Different signs: subtract the sizes, \\(9 - 5 = 4\\), and keep the sign of the larger size, negative: \\(-4\\). The answer is <b>-4</b>.", {}); }
 ]), ["Name the student's error first, then redo the calculation with the sign rules.", "Start by deciding whether the signs are the same or different."]);
 
-E("u2-problem-two-step", 2, ["6.29"], 2, "gen", function(){
+E("u2-problem-two-step", 2, ["6.29"], 1, "gen", function(){
   var T=pick([
     {pre:"A submarine is at ", unit:" m relative to the surface (below the surface is negative). It ", v:["rises ","dives "], mid:" m, then it ", post:" m. What is its final position, in metres?"},
     {pre:"The temperature at supper time is ", unit:" degrees. Overnight it ", v:["rises ","falls "], mid:" degrees, then in the morning it ", post:" degrees. What is the morning temperature, in degrees?"},
@@ -1683,7 +1683,7 @@ E("u3-frac-to-decimal", 3, ["3.11"], 1, "gen", function(){
     {num:num, d:d});
 }, ["A fraction is a division: numerator divided by denominator.", "Start by dividing the top number by the bottom number."]);
 
-E("u3-repeating-predict", 3, ["3.8","3.11"], 2, "gen", function(){
+E("u3-repeating-predict", 3, ["3.8","3.11"], 1, "gen", function(){
   var mode=ri(0,2);
   if(mode===0){
     var k=ri(3,10), dig=9*k, ds=(dig<10?"0":"")+dig;
@@ -4087,7 +4087,7 @@ E("u7-median-range-cr",7,["11.6","11.7"],1,"gen",function(){
     "Order the values: "+s6.join(", ")+". With six values, average the two middle values. \\[ \\begin{aligned} \\text{median} &= \\frac{"+s6[2]+" + "+s6[3]+"}{2} \\\\ &= "+fmt(med6)+" \\end{aligned} \\] The median is <b>"+fmt(med6)+"</b>.",{mode:"median6"});
 },["Order the values before finding a median; the range needs only the two extremes.","Start by rewriting the data set in increasing order."]);
 
-E("u7-two-event-pct-cr",7,["12.4","12.5","12.7"],2,"gen",function(){
+E("u7-two-event-pct-cr",7,["12.4","12.5","12.7"],1,"gen",function(){
   var fam=pick(["coinspin","coinspin","coindie","twocoin","spindie","twospin","dicesum"]);
   var fav,total,desc;
   var opener=pick(["At a games table","In a class activity","During a board game","At the school fair","In a probability lesson"]);
@@ -4147,7 +4147,7 @@ E("u7-sample-space",7,["12.3","12.4"],1,"gen",function(){
     {t:String(tot),fb:"Yes: "+A[1]+" outcomes times "+B[1]+" outcomes gives "+tot+"."},ds3,
     "The events are independent, so multiply: \\("+A[1]+" \\times "+B[1]+" = "+tot+"\\). The sample space has <b>"+tot+"</b> outcomes.",{mode:"count"});
 },["For two independent events, multiply the outcome counts to size the sample space.","Start by counting the outcomes of each event on its own."]);
-E("u7-exp-vs-theor",7,["12.6"],2,"gen",function(){
+E("u7-exp-vs-theor",7,["12.6"],1,"gen",function(){
   var trials=pick([20,40,50,100]);var theo=pick([["rolling a 6 on a die",1,6],["flipping heads",1,2],["landing on one section of a four-section spinner",1,4],["drawing a red marble from 3 red and 2 blue",3,5]]);
   var expected=theo[1]/theo[2]*trials;var obs=Math.max(1,Math.round(expected+ri(-4,4)));var guard=0;while(obs===expected&&guard<10){obs=Math.max(1,Math.round(expected+ri(-4,4)));guard++;}
   var expP=obs/trials;var mode=pick(["expfrac","compare"]);
@@ -4658,7 +4658,7 @@ E("u8-quadrant-locate",8,["10.7","10.18"],1,"gen",function(){
     quads[targetQuad]+" holds points with x "+(signs[targetQuad][0]>0?"positive":"negative")+" and y "+(signs[targetQuad][1]>0?"positive":"negative")+". The point is <b>"+correctP+"</b>.",{mode:mode});
 },["Quadrants are set by signs: I (+, +), II (-, +), III (-, -), IV (+, -).","Start by checking the sign of each coordinate."]);
 
-E("u8-grid-scale",8,["10.6","10.9"],2,"gen",function(){
+E("u8-grid-scale",8,["10.6","10.9"],1,"gen",function(){
   var s=pick([2,5,10]);var a=pick([-3,-2,-1,1,2,3]);var b=pick([-3,-2,-1,1,2,3]);var guard=0;
   while(Math.abs(a)===Math.abs(b)&&guard<15){b=pick([-3,-2,-1,1,2,3]);guard++;}
   var X=a*s,Y=b*s;var ask=pick(["pair","pair","xonly","yonly"]);
