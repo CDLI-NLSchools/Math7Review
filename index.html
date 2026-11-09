@@ -4189,14 +4189,15 @@ E("u7-two-events-prob",7,["12.1","12.5"],2,"gen",function(){
     "The sample space has "+total+" equally likely outcomes and "+fav+" match the target. \\(P = "+FR(fav,total)+" = "+cs+"\\). The probability is <b>\\("+cs+"\\)</b>.",{mode:"two",fam:fam});
 },["Build the combined sample space first, then count the matching outcomes.","Start by multiplying the outcome counts of the two events to get the sample space size."]);
 E("u7-outlier-effect",7,["11.11","11.8"],1,"gen",function(){
-  var mode=Math.random()<0.5;
-  if(!mode){
     var base=ri(8,15);var vals=[];for(var i=0;i<5;i++)vals.push(base+ri(-2,3));var out=base+ri(30,50);var all=vals.concat([out]);
     return mcq("Data set: "+shuffle(all).join(", ")+". The value "+out+" is an outlier. Which statement describes its effect correctly?",
       {t:"It raises the mean a lot but barely changes the median",fb:"Yes: the mean uses the outlier's full size, while the median only shifts position slightly."},
       [{t:"It raises the median a lot but barely changes the mean",fb:"The median depends on position, not size, so one large value barely moves it. The mean absorbs the full value."},{t:"It changes the mean and median by the same amount",fb:"The mean is pulled toward the outlier; the median is not, so the effects differ."},{t:"It has no effect on either measure",fb:"The mean must rise because the total grows while the count grows by only one."}],
       "The outlier adds a large amount to the total, pulling the mean up strongly. The median, based on position, moves very little. The answer is <b>It raises the mean a lot but barely changes the median</b>.",{mode:"effect"});
-  }
+},["Ask which measure the outlier can pull: the mean uses every value's size.","Start by checking whether one value is far from the rest of the data."]);
+
+
+E("u7-outlier-measure-choice",7,["11.11","11.8"],2,"gen",function(){
   var base2=ri(20,40);
   return mcq("Salaries at a small shop are mostly near $"+base2+",000, but the owner earns $"+(base2+120)+",000. Which measure should a report use for a typical salary, and why?",
     {t:"Median, because the owner's salary pulls the mean upward",fb:"Yes: the median resists the single extreme salary and stays typical."},
